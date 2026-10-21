@@ -5,8 +5,9 @@ import { getUserRole } from '@/lib/auth-helpers';
 import { AdSlotList } from './components/ad-slot-list';
 
 export default async function PublisherDashboard() {
+  const requestHeaders = await headers();
   const session = await auth.api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   });
 
   if (!session?.user) {
@@ -14,7 +15,9 @@ export default async function PublisherDashboard() {
   }
 
   // Verify user has 'publisher' role
-  const roleData = await getUserRole(session.user.id);
+  const roleData = await getUserRole(session.user.id, {
+    headers: { cookie: requestHeaders.get('cookie') || '' },
+  });
   if (roleData.role !== 'publisher') {
     redirect('/');
   }

@@ -58,12 +58,23 @@ describe('sponsor campaign Server Action', () => {
       expect(fetchMock).toHaveBeenNthCalledWith(
         fetchMock.mock.calls.length - 1,
         expect.stringMatching(/\/api\/auth\/role\/user-1$/),
-        expect.objectContaining({ cache: 'no-store' })
+        expect.objectContaining({
+          cache: 'no-store',
+          credentials: 'include',
+          headers: expect.any(Headers),
+        })
       );
       expect(fetchMock).toHaveBeenLastCalledWith(
         expect.stringMatching(new RegExp(`/api/campaigns\\?sponsorId=${sponsorId}$`)),
-        expect.objectContaining({ cache: 'no-store' })
+        expect.objectContaining({
+          cache: 'no-store',
+          credentials: 'include',
+          headers: expect.any(Headers),
+        })
       );
+    }
+    for (const [, options] of fetchMock.mock.calls) {
+      expect(new Headers(options?.headers).get('cookie')).toBe('session=test');
     }
     expect(getSession).toHaveBeenCalledWith({ headers: expect.any(Headers) });
   });

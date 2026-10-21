@@ -1,33 +1,42 @@
-import { Router, type Request, type Response, type IRouter } from 'express';
-import { prisma } from '../db.js';
+import { Router, type Response, type IRouter } from 'express';
+import { requireAuth, roleMiddleware, type AuthRequest } from '../auth.js';
+import { prisma, PlacementStatus } from '../db.js';
 import { getParam } from '../utils/helpers.js';
 
 const router: IRouter = Router();
 
+router.use(requireAuth);
+
 // GET /api/placements - List placements
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const { campaignId, publisherId, status } = req.query;
+    if (
+      status !== undefined &&
+      (typeof status !== 'string' ||
+        !Object.values(PlacementStatus).includes(status as PlacementStatus))
+    ) {
+      res.status(400).json({ error: 'Invalid status filter' });
+      return;
+    }
+    if (
+      [campaignId, publisherId].some((id) => id !== undefined && (typeof id !== 'string' || !id))
+    ) {
+      res.status(400).json({ error: 'Invalid placement ID filter' });
+      return;
+    }
 
     const placements = await prisma.placement.findMany({
       where: {
+        OR: [
+          { campaign: { sponsor: { userId: req.user!.id } } },
+          { publisher: { userId: req.user!.id } },
+        ],
         ...(campaignId && { campaignId: getParam(campaignId) }),
         ...(publisherId && { publisherId: getParam(publisherId) }),
         ...(status && {
-          status: status as string as
-            | 'PENDING'
-            | 'APPROVED'
-            | 'REJECTED'
-            | 'ACTIVE'
-            | 'PAUSED'
-            | 'COMPLETED',
+          status: status as PlacementStatus,
         }),
-      },
-      include: {
-        campaign: { select: { id: true, name: true } },
-        creative: { select: { id: true, name: true, type: true } },
-        adSlot: { select: { id: true, name: true, type: true } },
-        publisher: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -40,8 +49,15 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/placements - Create new placement
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', roleMiddleware(['SPONSOR']), async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.user!.publisherId) {
+      res
+        .status(403)
+        .json({ error: 'Placement creation requires ownership of the target publisher' });
+      return;
+    }
+
     const {
       campaignId,
       creativeId,
@@ -60,6 +76,26 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    const [campaign, adSlot, creative] = await Promise.all([
+      prisma.campaign.findUnique({ where: { id: campaignId }, select: { sponsorId: true } }),
+      prisma.adSlot.findUnique({ where: { id: adSlotId }, select: { publisherId: true } }),
+      prisma.creative.findUnique({ where: { id: creativeId }, select: { campaignId: true } }),
+    ]);
+    if (!campaign || !adSlot || !creative) {
+      res.status(404).json({ error: 'Placement resource not found' });
+      return;
+    }
+    // Strict owner-only policy also applies to indirect campaign/ad-slot writes.
+    if (
+      campaign.sponsorId !== req.user!.sponsorId ||
+      adSlot.publisherId !== req.user!.publisherId ||
+      publisherId !== req.user!.publisherId ||
+      creative.campaignId !== campaignId
+    ) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+
     const placement = await prisma.placement.create({
       data: {
         campaignId,
@@ -70,10 +106,6 @@ router.post('/', async (req: Request, res: Response) => {
         pricingModel: pricingModel || 'CPM',
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-      },
-      include: {
-        campaign: { select: { name: true } },
-        publisher: { select: { name: true } },
       },
     });
 

@@ -1,13 +1,17 @@
-import { Router, type Request, type Response, type IRouter } from 'express';
+import { Router, type Response, type IRouter } from 'express';
+import { requireAuth, roleMiddleware, type AuthRequest } from '../auth.js';
 import { prisma } from '../db.js';
 import { getParam } from '../utils/helpers.js';
 
 const router: IRouter = Router();
 
+router.use(requireAuth, roleMiddleware(['PUBLISHER']));
+
 // GET /api/publishers - List all publishers
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const publishers = await prisma.publisher.findMany({
+      where: { userId: req.user!.id },
       include: {
         _count: {
           select: { adSlots: true, placements: true },
@@ -23,7 +27,7 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // GET /api/publishers/:id - Get single publisher with ad slots
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const id = getParam(req.params.id);
     const publisher = await prisma.publisher.findUnique({
@@ -31,9 +35,6 @@ router.get('/:id', async (req: Request, res: Response) => {
       include: {
         adSlots: true,
         placements: {
-          include: {
-            campaign: { select: { name: true, sponsor: { select: { name: true } } } },
-          },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
@@ -42,6 +43,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     if (!publisher) {
       res.status(404).json({ error: 'Publisher not found' });
+      return;
+    }
+
+    if (publisher.userId !== req.user!.id) {
+      res.status(403).json({ error: 'Insufficient permissions' });
       return;
     }
 

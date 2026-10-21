@@ -1,12 +1,16 @@
-import { Router, type Request, type Response, type IRouter } from 'express';
+import { Router, type Response, type IRouter } from 'express';
+import { requireAuth, roleMiddleware, type AuthRequest } from '../auth.js';
 import { prisma } from '../db.js';
 
 const router: IRouter = Router();
 
+router.use(requireAuth);
+
 // GET /api/sponsors - List all sponsors
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', roleMiddleware(['SPONSOR']), async (req: AuthRequest, res: Response) => {
   try {
     const sponsors = await prisma.sponsor.findMany({
+      where: { userId: req.user!.id },
       include: {
         _count: {
           select: { campaigns: true },
@@ -22,7 +26,7 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // GET /api/sponsors/:id - Get single sponsor with campaigns
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', roleMiddleware(['SPONSOR']), async (req: AuthRequest, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const sponsor = await prisma.sponsor.findUnique({
@@ -45,6 +49,11 @@ router.get('/:id', async (req: Request, res: Response) => {
       return;
     }
 
+    if (sponsor.userId !== req.user!.id) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+
     res.json(sponsor);
   } catch (error) {
     console.error('Error fetching sponsor:', error);
@@ -53,7 +62,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/sponsors - Create new sponsor
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, website, logo, description, industry } = req.body;
 
@@ -62,8 +71,13 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    if (req.user!.sponsorId || req.user!.publisherId) {
+      res.status(403).json({ error: 'Profile already assigned' });
+      return;
+    }
+
     const sponsor = await prisma.sponsor.create({
-      data: { name, email, website, logo, description, industry },
+      data: { name, email, website, logo, description, industry, userId: req.user!.id },
     });
 
     res.status(201).json(sponsor);

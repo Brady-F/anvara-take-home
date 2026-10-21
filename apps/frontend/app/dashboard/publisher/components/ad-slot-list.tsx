@@ -21,7 +21,9 @@ export function AdSlotList() {
 
       try {
         // Get the user's publisherId from the backend
-        const roleRes = await fetch(`${API_URL}/api/auth/role/${session.user.id}`);
+        const roleRes = await fetch(`${API_URL}/api/auth/role/${session.user.id}`, {
+          credentials: 'include',
+        });
         const roleData: RoleData = await roleRes.json();
 
         if (roleData.publisherId) {

@@ -59,7 +59,8 @@ export function AdSlotDetail({ id }: Props) {
 
           // Fetch role info from backend
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/auth/role/${sessionUser.id}`
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/auth/role/${sessionUser.id}`,
+            { credentials: 'include' }
           )
             .then((res) => res.json())
             .then((data) => setRoleInfo(data))
@@ -82,6 +83,7 @@ export function AdSlotDetail({ id }: Props) {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/ad-slots/${adSlot.id}/book`,
         {
+          credentials: 'include',
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -112,6 +114,7 @@ export function AdSlotDetail({ id }: Props) {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/ad-slots/${adSlot.id}/unbook`,
         {
+          credentials: 'include',
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         }

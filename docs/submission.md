@@ -6,8 +6,8 @@ Please follow these instructions carefully to submit your work.
 
 ## Implementation Notes — Challenge 1
 
-Completed Challenge 1 (TypeScript errors) and Challenge 2 (see below).
-Challenges 3–5 and bonuses remain pending.
+Completed Challenges 1–3 (implementation notes below).
+Challenges 4–5 and bonuses remain pending.
 
 - Replaced explicit `any` types in application code with typed API inputs/responses,
   component state, and utilities; removed unused code.
@@ -79,6 +79,74 @@ check confirmed campaign content in raw HTML with scripts removed and redirects 
 anonymous/publisher visitors. Next.js may stream redirects in an HTTP 200 response.
 The production client-reference manifest excludes the campaign list and card.
 No database reset or seed was run for this challenge. GitHub publication remains pending.
+
+## Implementation Notes — Challenge 3
+
+- Implemented `requireAuth` with Better Auth's `getSession` and `fromNodeHeaders`.
+  Express validates the signed cookie against the same database and secret as Next.js,
+  bypasses cookie-cached session data, and attaches session identity and database-derived
+  sponsor/publisher IDs. Missing, invalid, expired, and revoked sessions return `401`;
+  infrastructure failures fail closed with a generic `500` response.
+- Campaign/ad-slot routers enforce sponsor/publisher roles, scope lists to the session
+  profile, reject conflicting query/body owner IDs, and derive creation ownership from
+  that profile. ID-path middleware covers GET and future PUT/DELETE handlers: foreign
+  resources return `403`, missing resources return `404`. Detail reads and listing-reset
+  writes also include the owner ID in their final query.
+- Closed alternate access through sponsor/publisher profiles, placements, role lookup,
+  and dashboard stats. Removed nested expansions of counterpart campaigns/ad slots;
+  existing placements remain visible to their participating sponsor/publisher. Sponsor
+  profile creation now requires a session and binds `userId` to that session.
+- Browser API/role requests include credentials; both dashboard server requests forward
+  only the cookie header. Private API requests/responses use `no-store`. Express allows
+  credentialed CORS only for the origin in `BETTER_AUTH_URL` (default localhost:3847)
+  and rejects other browser origins before mutations. Both auth instances require the
+  configured database and shared secret; removed the hardcoded secret fallback and
+  restored Better Auth's default CSRF checks. Added only the existing workspace's
+  `@types/pg` development dependency to the backend.
+- **Conflict decisions:** Brady explicitly chose Challenge 3's strict owner-only ad-slot
+  policy over the public marketplace description. Anonymous/sponsor marketplace reads
+  and sponsor booking are denied; listing resets require the owning publisher. Placement
+  creation also requires ownership of its campaign, creative, and target publisher/slot,
+  so ordinary cross-publisher placement creation is denied. No public alternative was
+  added. Followed Challenge 3's explicit `403` requirement over Challenge 4's conflicting
+  `404` example; this deliberately reveals resource existence to an authenticated user
+  of the appropriate role. The docs also conflict on completion requirements and grading
+  weights; this change implements only the requested challenge and makes no grading
+  assumptions.
+- PUT/DELETE implementations and broader mutation validation remain Challenge 4 work.
+  An owner reaching an unimplemented PUT/DELETE handler still receives Express's `404`;
+  authentication and ownership checks execute first. No bonuses or UI redesign were added.
+
+Validation: pnpm 11.21.0; `pnpm typecheck`, `pnpm lint`, `pnpm test --run`, and
+`pnpm exec dotenv -e .env -- pnpm build` pass. There are 81 passing tests and nine
+original API TODOs; lint retains the same four console warnings. The 54 backend security
+cases use an ephemeral HTTP server with mocked Better Auth/database boundaries to check
+route wiring, roles, session-derived scoping, spoofed IDs, status codes, alternate access,
+booking helpers, failure handling, and CORS. Three frontend request tests and the updated
+sponsor action regression verify credentials, cookie forwarding, and uncached requests.
+These tests do not prove database integration on their own.
+
+A disposable live check separately verified real signed cookies, both demo accounts'
+scoped lists/owned details, foreign and missing resources, wrong roles, tampered cookies,
+expired sessions, and revocation after logout. Only newly issued smoke-test sessions were
+expired; no application records were changed or database reset/seed run. Browser checks
+verified both dashboards, role navigation, logout, and anonymous redirect to login. The
+smoke script/screenshots and Next.js-generated agent notes are outside the repository;
+they are verification artifacts, not regression tests or submission files. Challenge 3
+is committed locally; GitHub publication remains pending.
+
+Follow-up review fixed malformed enum/availability/placement-ID query filters: these
+now return `400` before resource queries, using Prisma's generated enum values rather
+than trusting TypeScript casts. Live checks reproduced the earlier enum-filter `500`s
+and confirmed the new `400`s. Placement creation now denies a sponsor without a publisher
+profile before looking up campaign/slot/creative IDs, avoiding unnecessary queries and
+an existence probe through a route that cannot authorize that user. A regression case
+also checks all resource relationships for an account owning both profiles (permitted by
+the existing schema). Frontend creation inputs now permit omission of server-derived
+owner IDs, and the campaign helper delegates cache policy to the shared API client.
+The CORS test sets its own frontend origin so deployment environment variables cannot
+change the test's expected origin. Review assumed the take-home's local deployment;
+no load benchmark or production deployment review was performed.
 
 ---
 

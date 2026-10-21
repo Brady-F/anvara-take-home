@@ -18,7 +18,10 @@ export function Nav() {
   useEffect(() => {
     if (user?.id) {
       const userId = user.id;
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/auth/role/${userId}`)
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/auth/role/${userId}`,
+        { credentials: 'include' }
+      )
         .then((res) => res.json())
         .then((data: RoleData) => setRoleInfo({ userId, role: data.role }))
         .catch(() => setRoleInfo(null));

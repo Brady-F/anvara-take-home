@@ -13,9 +13,11 @@ export interface RoleData {
  * Fetch user role from the backend based on userId.
  * Returns role info including sponsorId/publisherId if applicable.
  */
-export async function getUserRole(userId: string): Promise<RoleData> {
+export async function getUserRole(userId: string, options?: RequestInit): Promise<RoleData> {
   try {
     const res = await fetch(`${API_URL}/api/auth/role/${userId}`, {
+      ...options,
+      credentials: 'include',
       cache: 'no-store', // Always fetch fresh role data
     });
     if (!res.ok) {

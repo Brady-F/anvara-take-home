@@ -1,18 +1,26 @@
-import { Router, type Request, type Response, type IRouter } from 'express';
+import { Router, type Response, type IRouter } from 'express';
+import { requireAuth, type AuthRequest } from '../auth.js';
 import { prisma } from '../db.js';
 
 const router: IRouter = Router();
 
 // GET /api/dashboard/stats - Get overall platform stats
-router.get('/stats', async (_req: Request, res: Response) => {
+router.get('/stats', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
+    const placementScope = {
+      OR: [
+        { campaign: { sponsor: { userId: req.user!.id } } },
+        { publisher: { userId: req.user!.id } },
+      ],
+    };
     const [sponsorCount, publisherCount, activeCampaigns, totalPlacements, placementMetrics] =
       await Promise.all([
-        prisma.sponsor.count({ where: { isActive: true } }),
-        prisma.publisher.count({ where: { isActive: true } }),
-        prisma.campaign.count({ where: { status: 'ACTIVE' } }),
-        prisma.placement.count(),
+        prisma.sponsor.count({ where: { isActive: true, userId: req.user!.id } }),
+        prisma.publisher.count({ where: { isActive: true, userId: req.user!.id } }),
+        prisma.campaign.count({ where: { status: 'ACTIVE', sponsor: { userId: req.user!.id } } }),
+        prisma.placement.count({ where: placementScope }),
         prisma.placement.aggregate({
+          where: placementScope,
           _sum: {
             impressions: true,
             clicks: true,

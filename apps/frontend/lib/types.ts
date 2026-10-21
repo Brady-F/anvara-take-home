@@ -45,7 +45,7 @@ export interface CreateCampaignInput {
   endDate: string;
   targetCategories?: string[];
   targetRegions?: string[];
-  sponsorId: string;
+  sponsorId?: string;
 }
 
 export interface CreateAdSlotInput {
@@ -53,7 +53,7 @@ export interface CreateAdSlotInput {
   description?: string | null;
   type: AdSlot['type'];
   basePrice: number;
-  publisherId: string;
+  publisherId?: string;
 }
 
 export interface CreatePlacementInput {

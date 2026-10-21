@@ -2,9 +2,6 @@
 // FIXME: This client has no error response parsing - when API returns { error: "..." },
 // we should extract and throw that message instead of generic "API request failed"
 
-// TODO: Add authentication token to requests
-// Hint: Include credentials: 'include' for cookie-based auth, or
-// add Authorization header for token-based auth
 import type {
   AdSlot,
   Campaign,
@@ -18,19 +15,21 @@ import type {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291';
 
 export async function api<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const res = await fetch(`${API_URL}${endpoint}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
     ...options,
+    credentials: 'include',
+    cache: 'no-store',
+    headers,
   });
   if (!res.ok) throw new Error('API request failed');
   return res.json();
 }
 
 // Campaigns
-export const getCampaigns = (sponsorId?: string) =>
-  api<Campaign[]>(sponsorId ? `/api/campaigns?sponsorId=${sponsorId}` : '/api/campaigns', {
-    cache: 'no-store',
-  });
+export const getCampaigns = (sponsorId?: string, options?: RequestInit) =>
+  api<Campaign[]>(sponsorId ? `/api/campaigns?sponsorId=${sponsorId}` : '/api/campaigns', options);
 export const getCampaign = (id: string) => api<Campaign>(`/api/campaigns/${id}`);
 export const createCampaign = (data: CreateCampaignInput) =>
   api<Campaign>('/api/campaigns', { method: 'POST', body: JSON.stringify(data) });
