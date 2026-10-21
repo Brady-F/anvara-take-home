@@ -6,7 +6,8 @@ Please follow these instructions carefully to submit your work.
 
 ## Implementation Notes — Challenge 1
 
-Completed Challenge 1 (TypeScript errors). Challenges 2–5 and bonuses remain pending.
+Completed Challenge 1 (TypeScript errors) and Challenge 2 (see below).
+Challenges 3–5 and bonuses remain pending.
 
 - Replaced explicit `any` types in application code with typed API inputs/responses,
   component state, and utilities; removed unused code.
@@ -40,8 +41,44 @@ restriction in the verification environment. The frontend production build passe
 repository root. The root `.env` must be loaded or its variables supplied by the build
 environment; no bundler or build-script changes were made.
 
-This work does not implement API authentication, ownership checks, CRUD completion,
+Challenge 1 did not implement API authentication, ownership checks, CRUD completion,
 or Server Actions. No database reset or seed was run. GitHub publication remains pending.
+
+## Implementation Notes — Challenge 2
+
+- The sponsor page awaits an authenticated Server Action, then passes campaigns to
+  the list and cards as props. Both components now render on the server without
+  client hooks or a second browser session/role lookup.
+- The action verifies the session and sponsor role itself and derives the sponsor ID
+  from that session's role response. Missing sponsor IDs fail rather than fetching
+  every campaign. Anonymous visitors go to `/login`; other roles go to `/`.
+- Role and campaign requests use `cache: 'no-store'` to keep private data fresh and
+  avoid shared caching. The action uses the existing typed API client for role lookup
+  because `getUserRole` hides backend failures as a missing role. Failures reach the
+  route error boundary, which shows a generic message and a retry button.
+- Added `loading.tsx` and retained the empty state. Only the error boundary needs
+  client JavaScript within this route; it uses Next.js 16.3's `retry` prop to refetch.
+  Shared navigation remains an existing Client Component with its own role request.
+- Kept the existing UI and dependencies. Backend authentication/ownership enforcement
+  remains Challenge 3; moving fetching to the server does not secure the Express API.
+- Campaign dates use `en-US` formatting in UTC, so the displayed calendar day does
+  not change with the server's time zone. A regression test runs under New York time
+  and verifies that midnight UTC start/end dates do not shift to the previous day.
+
+Validation: `pnpm typecheck`, `pnpm lint`, `pnpm test --run`, and
+`pnpm exec dotenv -e .env -- pnpm build` pass with pnpm 11.21.0. There are 24 passing
+tests, including 14 new Challenge 2 cases, plus nine existing API TODOs. Lint retains
+the same four console warnings. The new tests cover session/role guards, sponsor
+scoping, missing IDs, uncached requests, empty results, HTTP/connection failures,
+server-rendered campaign markup, loading, and retry wiring. The small Vitest config
+enables the existing React plugin and `@/` alias for these component/action tests.
+
+Browser checks confirmed loading, campaign display, a graceful error after stopping
+the backend, and recovery through Try again after restarting it. A disposable HTTP
+check confirmed campaign content in raw HTML with scripts removed and redirects for
+anonymous/publisher visitors. Next.js may stream redirects in an HTTP 200 response.
+The production client-reference manifest excludes the campaign list and card.
+No database reset or seed was run for this challenge. GitHub publication remains pending.
 
 ---
 
