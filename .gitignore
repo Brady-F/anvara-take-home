@@ -46,3 +46,6 @@ test-results/
 
 # Generated files
 **/generated/
+
+# Local agent workflow
+/AGENTS.md
