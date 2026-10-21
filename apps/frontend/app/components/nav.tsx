@@ -3,26 +3,25 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { authClient } from '@/auth-client';
+import type { RoleData } from '@/lib/auth-helpers';
 
 type UserRole = 'sponsor' | 'publisher' | null;
 
 export function Nav() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
-  const [role, setRole] = useState<UserRole>(null);
+  const [roleInfo, setRoleInfo] = useState<{ userId: string; role: UserRole } | null>(null);
+  const role = roleInfo && roleInfo.userId === user?.id ? roleInfo.role : null;
 
   // TODO: Convert to server component and fetch role server-side
   // Fetch user role from backend when user is logged in
   useEffect(() => {
     if (user?.id) {
-      fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/auth/role/${user.id}`
-      )
+      const userId = user.id;
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291'}/api/auth/role/${userId}`)
         .then((res) => res.json())
-        .then((data) => setRole(data.role))
-        .catch(() => setRole(null));
-    } else {
-      setRole(null);
+        .then((data: RoleData) => setRoleInfo({ userId, role: data.role }))
+        .catch(() => setRoleInfo(null));
     }
   }, [user?.id]);
 

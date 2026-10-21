@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { getCampaigns } from '@/lib/api';
+import type { Campaign } from '@/lib/types';
+import type { RoleData } from '@/lib/auth-helpers';
 import { authClient } from '@/auth-client';
 import { CampaignCard } from './campaign-card';
 
@@ -10,7 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291';
 // FIXME: This component fetches data client-side - should use Server Components
 // See Challenge 2 in CHALLENGES.md for proper implementation
 export function CampaignList() {
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { data: session } = authClient.useSession();
@@ -24,7 +26,7 @@ export function CampaignList() {
       try {
         // Get the user's sponsorId from the backend
         const roleRes = await fetch(`${API_URL}/api/auth/role/${session.user.id}`);
-        const roleData = await roleRes.json();
+        const roleData: RoleData = await roleRes.json();
 
         if (roleData.sponsorId) {
           const data = await getCampaigns(roleData.sponsorId);

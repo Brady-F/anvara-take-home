@@ -4,6 +4,45 @@
 
 Please follow these instructions carefully to submit your work.
 
+## Implementation Notes — Challenge 1
+
+Completed Challenge 1 (TypeScript errors). Challenges 2–5 and bonuses remain pending.
+
+- Replaced explicit `any` types in application code with typed API inputs/responses,
+  component state, and utilities; removed unused code.
+- Matched frontend types to Prisma's nullable fields, enum values, and decimal JSON
+  strings. Display calculations convert those strings to numbers as needed.
+- Removed unsupported `dimensions` and `pricingModel` fields from ad-slot creation
+  and reused `getParam` to narrow Express route parameters.
+- Added missing CORS declarations. Kept TypeScript 7 for compilation; used Microsoft's
+  TypeScript 6 API compatibility package for typescript-eslint and ESLint 9 for the
+  existing React plugin. TypeScript handles undefined-name checks in frontend TS files.
+- Kept navigation role state tied to the current user to satisfy React's effect lint
+  rule without changing to Server Components.
+
+Validation: `pnpm typecheck`, `pnpm lint`, and `pnpm test --run` pass using pnpm 11.21.0.
+Lint retains four existing console warnings; ten added utility tests pass, while
+the nine original API test placeholders remain TODOs. Both services start with
+`pnpm dev`; browser checks passed for the marketplace, ad-slot detail, sponsor and
+publisher dashboards, and logout. Read-only API checks confirmed decimal serialization.
+
+Final test review retained both test files, separated unrelated helper checks, and
+verified that `sleep` stays pending until its requested delay. Backend tests cover
+parameter narrowing, pagination/defaults, filter allowlisting, currency formatting,
+and percentage changes including zero. Frontend tests cover debounce timing and
+argument types, query decoding/duplicates, price formatting, conditional class names,
+and sleep timing/return type. Fake timers avoid real waits; only debounce uses a spy.
+These utility tests do not establish API mutation or authorization correctness.
+
+The backend build passes. Default `pnpm build` encounters a Turbopack port-binding
+restriction in the verification environment. The frontend production build passes with
+`pnpm exec dotenv -e .env -- pnpm --filter @anvara/frontend build --webpack` from the
+repository root. The root `.env` must be loaded or its variables supplied by the build
+environment; no bundler or build-script changes were made.
+
+This work does not implement API authentication, ownership checks, CRUD completion,
+or Server Actions. No database reset or seed was run. GitHub publication remains pending.
+
 ---
 
 ## Quick Submission Steps

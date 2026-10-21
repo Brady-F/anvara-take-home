@@ -18,7 +18,7 @@ export interface AuthRequest extends Request {
 // 3. Look up the user in the database
 // 4. Attach user info to req.user
 // 5. Return 401 if invalid
-export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
+export function authMiddleware(_req: AuthRequest, _res: Response, next: NextFunction): void {
   // Better Auth will handle validation via headers
   // This is a placeholder for protected routes
   next();

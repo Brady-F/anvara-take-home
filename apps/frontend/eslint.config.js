@@ -5,7 +5,8 @@ export default [
   {
     files: ['**/*.{ts,tsx}'],
     rules: {
-      // Frontend-specific rules
+      // TypeScript checks undefined names, including type-only globals such as RequestInit.
+      'no-undef': 'off',
     },
   },
 ];

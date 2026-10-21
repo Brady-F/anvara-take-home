@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { getAdSlots } from '@/lib/api';
+import type { AdSlot } from '@/lib/types';
+import type { RoleData } from '@/lib/auth-helpers';
 import { authClient } from '@/auth-client';
 import { AdSlotCard } from './ad-slot-card';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4291';
 
 export function AdSlotList() {
-  const [adSlots, setAdSlots] = useState<any[]>([]);
+  const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { data: session } = authClient.useSession();
@@ -20,7 +22,7 @@ export function AdSlotList() {
       try {
         // Get the user's publisherId from the backend
         const roleRes = await fetch(`${API_URL}/api/auth/role/${session.user.id}`);
-        const roleData = await roleRes.json();
+        const roleData: RoleData = await roleRes.json();
 
         if (roleData.publisherId) {
           const data = await getAdSlots(roleData.publisherId);
