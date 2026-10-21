@@ -46,6 +46,7 @@ test-results/
 
 # Generated files
 **/generated/
+**/*.tsbuildinfo
 
 # Local agent workflow
 /AGENTS.md
