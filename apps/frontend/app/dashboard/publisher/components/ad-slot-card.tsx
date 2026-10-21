@@ -1,6 +1,5 @@
-'use client';
-
 import type { AdSlot } from '@/lib/types';
+import { AdSlotEditor } from './ad-slot-editor';
 
 interface AdSlotCardProps {
   adSlot: AdSlot;
@@ -38,7 +37,7 @@ export function AdSlotCard({ adSlot }: AdSlotCardProps) {
         </span>
       </div>
 
-      {/* TODO: Add edit/toggle availability buttons */}
+      <AdSlotEditor adSlot={adSlot} />
     </div>
   );
 }

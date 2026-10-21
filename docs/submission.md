@@ -6,8 +6,8 @@ Please follow these instructions carefully to submit your work.
 
 ## Implementation Notes — Challenge 1
 
-Completed Challenges 1–4 (implementation notes below).
-Challenge 5 and bonuses remain pending.
+Completed Challenges 1–5 (implementation notes below).
+Bonuses remain pending.
 
 - Replaced explicit `any` types in application code with typed API inputs/responses,
   component state, and utilities; removed unused code.
@@ -225,6 +225,91 @@ Review follow-up:
   paths; no additional validation framework or abstraction was needed.
 
 ---
+
+## Implementation Notes — Challenge 5
+
+- Added authenticated Server Actions for campaign and ad-slot create/update/delete.
+  Actions forward the incoming cookie header to the existing API; Express remains the
+  authority for roles, ownership, and database validation. Form data never supplies
+  an owner ID. Each successful mutation revalidates its dashboard path.
+- Both dashboards render their owned lists on the server. Publisher loading/error
+  boundaries now match the sponsor route, and publisher fetches no longer depend on
+  a browser effect that would stay stale after revalidation. Lists/cards remain Server
+  Components; small client editors handle the forms and shared success announcement.
+- Forms provide field-specific validation, retained input after errors, prefilled
+  edits, pending Save/Delete buttons, cancellation, and success feedback. Successful
+  saves close the form and return focus to its trigger. Native delete confirmations
+  explain the existing cascade to placements and, for campaigns, creatives.
+- **Version decision:** the challenge requests `useFormState`, but the installed
+  React 19 deprecates it and emits a rename warning. Brady approved `useActionState`
+  instead; pending buttons still use the requested `useFormStatus` hook. No dependency
+  changes, bonuses, or dashboard redesign were added.
+- Forms edit the displayed core fields, campaign status, and ad-slot availability.
+  Campaign dates use calendar-day inputs; new or changed dates save midnight UTC,
+  while unchanged dates retain their exact stored timestamps. Money follows the
+  API's positive amount, two-decimal, `Decimal(10,2)` limits. Other optional API fields
+  are left unchanged by edits. The API client now accepts empty `204` deletes, preserves
+  useful `4xx` errors, and hides unexpected `5xx` details.
+- Preserved the previously approved owner-only access and `403` decisions. The docs'
+  completion/grading conflicts do not change this challenge's scope. GitHub publication
+  remains pending user authorization.
+
+Validation: typecheck, lint, tests, production build (with the root `.env` loaded),
+and targeted formatting checks pass using the installed pnpm 11.21.0 directly. The
+global launcher's registry verification was unavailable. There are 164 passing tests,
+nine existing API TODOs, and the same four pre-existing console lint warnings. Backend
+HTTP tests require local port access; the initial sandboxed run failed to bind its
+server, then passed with that access. Regression tests cover action payloads/cookies,
+validation, session failures, backend errors, successful-only revalidation, server
+rendered lists, and form interactions (retained values, prefilled dates, pending
+buttons, cancellation, focus, delete confirmation, feedback, and rejected requests). A disposable live
+HTTP check exercised all six real Next.js Server Actions against the existing local
+database and confirmed persisted creates/updates/deletes, invalid input, wrong roles,
+and anonymous access. Its records and newly issued sessions were cleaned up; no
+reset or seed ran. Browser checks verified sponsor creation, validation, pending state,
+automatic refresh, and persisted edits. Follow-up browser checks completed publisher
+create/edit/delete, required-field and price validation, retained input, prefilled edits,
+type/availability changes, successful form closure, and persistence after reload.
+The in-app browser controls stalled around native confirmation prompts; a separate
+Chrome tab controlled through native UI completed both dashboards' delete flows.
+Cancelling the publisher confirmation preserved its record; accepting each deletion
+removed only its disposable test record, showed success feedback, and stayed deleted
+after reload. Temporarily pausing the local API verified disabled `Saving...`, `Cancel`,
+and `Deleting...` buttons; resuming it completed both sponsor mutations. The final
+Chrome dashboard console showed no errors. Both browser test records were removed.
+No application changes were needed for this follow-up. Screenshots, disposable smoke
+scripts, and Next.js-generated agent notes are outside the submission.
+
+Review follow-up:
+
+- Fixed campaign edits that silently truncated unchanged timestamps to midnight or
+  rejected an existing same-day time range. The editor now omits unchanged dates;
+  update actions allow those omissions, and the existing API transaction validates
+  the merged date range. Creation still requires both dates. A real browser edit of
+  a campaign running 10:30–16:45 on one day preserved both timestamps, including their
+  milliseconds, while updating its name and budget; database-backed reads confirmed it.
+- Fixed fields remaining editable during Save and the Edit trigger remaining active
+  during Delete. The shared pending controls now use a native disabled fieldset;
+  no extra pending-state store or form library was added. Regression tests reproduced
+  the failures before the fixes, and Chrome checks verified disabled inputs, disabled
+  Edit/Delete controls, normal completion after API recovery, and focus after Cancel.
+- Improved contrast of new error/success/delete text in the existing dark theme.
+  The generic form helpers, shared feedback context, and separate domain actions were
+  retained because both dashboards use them; no speculative abstraction was added.
+- Compliance review retained Brady's approved `useActionState` substitution and the
+  earlier owner-only/`403` decisions. The listed CRUD, validation, pending, feedback,
+  authentication, and revalidation behavior is implemented. Opening and submitting
+  these client-controlled forms requires JavaScript; the challenge lists progressive
+  enhancement as a concept/benefit, but does not explicitly require a no-script UI.
+  Native disclosures with direct Server Action bindings would be needed for that.
+- Review assumed the take-home's local deployment. No dependency changes, reset,
+  seed, commit, or push were performed. Only disposable review records were removed.
+
+Review validation: typecheck, lint, all 164 tests, the production build with the root
+`.env` loaded, targeted formatting, and `git diff --check` pass. Nine existing API TODOs
+and four existing console lint warnings remain. Browser checks and database-backed
+reads described above supplement the mocked regression tests; no production load test
+or no-script implementation was added.
 
 ## Quick Submission Steps
 

@@ -62,3 +62,19 @@ it('lets typed creation callers omit the owner IDs supplied by the server', asyn
     expect(JSON.parse(String(options?.body))).not.toHaveProperty('publisherId');
   }
 });
+
+it('preserves backend validation messages and falls back safely for non-JSON failures', async () => {
+  vi.stubGlobal('fetch', fetchMock);
+  fetchMock.mockResolvedValueOnce(
+    Response.json({ error: 'budget must be positive' }, { status: 400 })
+  );
+  await expect(api('/api/campaigns')).rejects.toMatchObject({
+    status: 400,
+    message: 'budget must be positive',
+  });
+  fetchMock.mockResolvedValueOnce(new Response('proxy unavailable', { status: 502 }));
+  await expect(api('/api/campaigns')).rejects.toMatchObject({
+    status: 502,
+    message: 'API request failed',
+  });
+});

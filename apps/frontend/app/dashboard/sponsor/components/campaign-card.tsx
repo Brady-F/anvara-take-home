@@ -1,4 +1,5 @@
 import type { Campaign } from '@/lib/types';
+import { CampaignEditor } from './campaign-editor';
 
 interface CampaignCardProps {
   campaign: Campaign;
@@ -50,7 +51,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
         {new Date(campaign.endDate).toLocaleDateString('en-US', { timeZone: 'UTC' })}
       </div>
 
-      {/* TODO: Add edit/view buttons */}
+      <CampaignEditor campaign={campaign} />
     </div>
   );
 }

@@ -9,7 +9,12 @@ import SponsorDashboard from './page';
 import SponsorLoading from './loading';
 import SponsorError from './error';
 
-vi.mock('./actions', () => ({ getSponsorCampaigns: vi.fn() }));
+vi.mock('./actions', () => ({
+  getSponsorCampaigns: vi.fn(),
+  createCampaign: vi.fn(),
+  updateCampaign: vi.fn(),
+  deleteCampaign: vi.fn(),
+}));
 
 const campaign: Campaign = {
   id: 'campaign-1',
