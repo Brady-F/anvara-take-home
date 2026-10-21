@@ -2,14 +2,29 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import app from './app.js';
+import { Prisma } from './generated/prisma/client.js';
 
 const { getSession, db } = vi.hoisted(() => ({
   getSession: vi.fn(),
   db: {
+    $transaction: vi.fn(),
     sponsor: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), count: vi.fn() },
     publisher: { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
-    campaign: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), count: vi.fn() },
-    adSlot: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    campaign: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn(),
+    },
+    adSlot: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
     creative: { findUnique: vi.fn() },
     placement: { findMany: vi.fn(), create: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
   },
@@ -43,6 +58,7 @@ afterAll(
 afterEach(() => vi.restoreAllMocks());
 beforeEach(() => {
   vi.resetAllMocks();
+  db.$transaction.mockImplementation(async (operation) => operation(db));
   getSession.mockImplementation(async ({ headers }: { headers: Headers }) => {
     const id = headers.get('cookie');
     return ['sponsor', 'publisher', 'unassigned'].includes(id || '')
@@ -72,12 +88,17 @@ beforeEach(() => {
         : {
             id: where.id,
             [ownerKey]: where.id === 'other' ? 'other-profile' : ownerId,
+            ...(ownerKey === 'sponsorId' && {
+              startDate: new Date('2026-10-21'),
+              endDate: new Date('2026-10-22'),
+            }),
           }
     );
     model.findMany.mockImplementation(async ({ where }) => [{ [ownerKey]: where[ownerKey] }]);
     model.create.mockImplementation(async ({ data }) => ({ id: 'new', ...data }));
+    model.update.mockImplementation(async ({ data }) => ({ id: 'owned', ...data }));
+    model.delete.mockResolvedValue({ id: 'owned' });
   }
-  db.adSlot.update.mockResolvedValue({ id: 'owned', isAvailable: true });
   db.campaign.count.mockResolvedValue(1);
   db.placement.findMany.mockResolvedValue([]);
   db.placement.count.mockResolvedValue(0);
@@ -125,14 +146,33 @@ for (const { path, user, key, owner, model, body } of resources) {
       expect(model.findUnique).not.toHaveBeenCalled();
       expect(model.findMany).not.toHaveBeenCalled();
       expect(model.create).not.toHaveBeenCalled();
+      expect(model.update).not.toHaveBeenCalled();
+      expect(model.delete).not.toHaveBeenCalled();
     });
 
     it.each(['invalid-cookie', 'unassigned', user === 'sponsor' ? 'publisher' : 'sponsor'])(
       'rejects an invalid session or wrong/missing role: %s',
       async (identity) => {
-        expect((await request(path, identity)).status).toBe(
-          identity === 'invalid-cookie' ? 401 : 403
-        );
+        for (const [method, suffix] of [
+          ['GET', ''],
+          ['POST', ''],
+          ['PUT', '/owned'],
+          ['DELETE', '/owned'],
+        ]) {
+          expect(
+            (
+              await request(
+                `${path}${suffix}`,
+                identity,
+                method,
+                method === 'POST' || method === 'PUT' ? body : undefined
+              )
+            ).status
+          ).toBe(identity === 'invalid-cookie' ? 401 : 403);
+        }
+        expect(model.create).not.toHaveBeenCalled();
+        expect(model.update).not.toHaveBeenCalled();
+        expect(model.delete).not.toHaveBeenCalled();
         expect(model.findMany).not.toHaveBeenCalled();
       }
     );
@@ -161,13 +201,15 @@ for (const { path, user, key, owner, model, body } of resources) {
       async (method) => {
         expect((await request(`${path}/other`, user, method)).status).toBe(403);
         expect((await request(`${path}/missing`, user, method)).status).toBe(404);
+        expect(model.update).not.toHaveBeenCalled();
+        expect(model.delete).not.toHaveBeenCalled();
       }
     );
 
     it('returns an owned detail without expanding counterpart private data', async () => {
       const response = await request(`${path}/owned`, user);
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ id: 'owned', [key]: owner });
+      expect(await response.json()).toMatchObject({ id: 'owned', [key]: owner });
       expect(model.findUnique).toHaveBeenLastCalledWith(
         expect.objectContaining({
           where: { id: 'owned', [key]: owner },
@@ -197,6 +239,107 @@ for (const { path, user, key, owner, model, body } of resources) {
     it('preserves required-field validation', async () => {
       expect((await request(path, user, 'POST', {})).status).toBe(400);
       expect(model.create).not.toHaveBeenCalled();
+    });
+
+    it('updates only supplied writable fields under the session owner', async () => {
+      const update = { name: 'Updated', description: null };
+      const response = await request(`${path}/owned`, user, 'PUT', update);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject(update);
+      expect(model.update).toHaveBeenCalledWith({
+        where: { id: 'owned', [key]: owner },
+        data: update,
+      });
+    });
+
+    it('allows a matching update owner ID but refuses ownership transfers', async () => {
+      expect(
+        (await request(`${path}/owned`, user, 'PUT', { name: 'Updated', [key]: owner })).status
+      ).toBe(200);
+      expect(model.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({ data: { name: 'Updated' } })
+      );
+      model.update.mockClear();
+      expect(
+        (await request(`${path}/owned`, user, 'PUT', { name: 'Updated', [key]: 'other' })).status
+      ).toBe(403);
+      expect(model.update).not.toHaveBeenCalled();
+    });
+
+    it('deletes an owned resource with an empty 204 response', async () => {
+      const response = await request(`${path}/owned`, user, 'DELETE');
+      expect(response.status).toBe(204);
+      expect(await response.text()).toBe('');
+      expect(model.delete).toHaveBeenCalledWith({ where: { id: 'owned', [key]: owner } });
+    });
+
+    it.each(['POST', 'PUT'])(
+      'rejects malformed and read-only fields on %s without writing',
+      async (method) => {
+        const endpoint = method === 'POST' ? path : `${path}/owned`;
+        for (const invalid of [
+          [],
+          { ...body, name: '  ' },
+          { ...body, name: 1 },
+          { ...body, name: 'bad\u0000name' },
+          { ...body, description: 'bad\u0000description' },
+          { ...body, description: {} },
+          { ...body, id: 'forged' },
+          { ...body, createdAt: '2026-10-21' },
+          { ...body, typo: true },
+        ]) {
+          expect((await request(endpoint, user, method, invalid)).status).toBe(400);
+        }
+        expect((await request(endpoint, user, method)).status).toBe(400);
+        expect(model.create).not.toHaveBeenCalled();
+        expect(model.update).not.toHaveBeenCalled();
+      }
+    );
+
+    it('rejects an empty update or an owner-only update', async () => {
+      for (const update of [{}, { [key]: owner }]) {
+        expect((await request(`${path}/owned`, user, 'PUT', update)).status).toBe(400);
+      }
+      expect(model.update).not.toHaveBeenCalled();
+    });
+
+    it.each(['POST', 'PUT', 'DELETE'])(
+      'logs %s failures and returns a generic JSON 500',
+      async (method) => {
+        const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const write =
+          method === 'POST' ? model.create : method === 'PUT' ? model.update : model.delete;
+        write.mockRejectedValueOnce(new Error('private database detail'));
+        const response = await request(
+          method === 'POST' ? path : `${path}/owned`,
+          user,
+          method,
+          method === 'DELETE' ? undefined : body
+        );
+        expect(response.status).toBe(500);
+        expect(await response.json()).toEqual({ error: expect.stringContaining('Failed to') });
+        expect(log).toHaveBeenCalled();
+      }
+    );
+
+    it.each(['PUT', 'DELETE'])('returns 404 if the record disappears before %s', async (method) => {
+      const write = method === 'PUT' ? model.update : model.delete;
+      write.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Record not found', {
+          code: 'P2025',
+          clientVersion: 'test',
+        })
+      );
+      expect(
+        (
+          await request(
+            `${path}/owned`,
+            user,
+            method,
+            method === 'PUT' ? { name: 'Updated' } : undefined
+          )
+        ).status
+      ).toBe(404);
     });
   });
 }
@@ -411,4 +554,205 @@ it('allows credentialed frontend CORS and rejects other origins before mutations
     ).status
   ).toBe(403);
   expect(db.adSlot.update).not.toHaveBeenCalled();
+});
+
+it.each(['POST', 'PUT'])(
+  'validates campaign money, dates, enums and targeting on %s',
+  async (method) => {
+    const body = resources[0].body;
+    const path = method === 'POST' ? '/campaigns' : '/campaigns/owned';
+    const changes = [
+      { budget: 0 },
+      { budget: -1 },
+      { budget: '100' },
+      { budget: true },
+      { budget: null },
+      { budget: 100_000_000 },
+      { budget: 1.001 },
+      { cpmRate: -1 },
+      { cpcRate: '1' },
+      { startDate: 'invalid' },
+      { startDate: 0 },
+      { startDate: null },
+      { startDate: '2026-02-30' },
+      { startDate: '0000-01-01' },
+      { startDate: '0001-01-01T00:00:00+01:00' },
+      { endDate: '2026-10-20' },
+      { endDate: body.startDate },
+      { status: 'invalid' },
+      { status: 'toString' },
+      { targetCategories: 'news' },
+      { targetRegions: [1] },
+      { targetRegions: ['bad\u0000region'] },
+      { targetCategories: [''] },
+      { targetRegions: null },
+      { spent: 0 },
+    ];
+    for (const change of changes) {
+      expect((await request(path, 'sponsor', method, { ...body, ...change })).status).toBe(400);
+    }
+    expect(db.campaign.create).not.toHaveBeenCalled();
+    expect(db.campaign.update).not.toHaveBeenCalled();
+  }
+);
+
+it('validates a single changed date against the persisted campaign date', async () => {
+  for (const update of [{ startDate: '2026-10-23' }, { endDate: '2026-10-20' }]) {
+    expect((await request('/campaigns/owned', 'sponsor', 'PUT', update)).status).toBe(400);
+  }
+  expect(db.campaign.update).not.toHaveBeenCalled();
+  expect(
+    (await request('/campaigns/owned', 'sponsor', 'PUT', { endDate: '2026-10-24' })).status
+  ).toBe(200);
+  expect(db.campaign.update).toHaveBeenCalledWith({
+    where: { id: 'owned', sponsorId: 'sponsor-1' },
+    data: { endDate: new Date('2026-10-24') },
+  });
+});
+
+it('handles a campaign disappearing between ownership and date lookup', async () => {
+  db.campaign.findUnique
+    .mockResolvedValueOnce({ sponsorId: 'sponsor-1' })
+    .mockResolvedValueOnce(null);
+  expect((await request('/campaigns/owned', 'sponsor', 'PUT', { name: 'Updated' })).status).toBe(
+    404
+  );
+  expect(db.campaign.update).not.toHaveBeenCalled();
+});
+
+it.each(['POST', 'PUT'])('accepts all writable campaign fields on %s', async (method) => {
+  const body = {
+    ...resources[0].body,
+    name: ' Campaign ',
+    description: null,
+    budget: 99_999_999.99,
+    cpmRate: 0.29,
+    cpcRate: null,
+    status: 'PAUSED',
+    targetCategories: ['Tech'],
+    targetRegions: [],
+    startDate: '2026-10-21T09:00:00-04:00',
+    endDate: '2026-10-23T13:00:00.000Z',
+  };
+  const response = await request(
+    method === 'POST' ? '/campaigns' : '/campaigns/owned',
+    'sponsor',
+    method,
+    body
+  );
+  expect(response.status).toBe(method === 'POST' ? 201 : 200);
+  const write = method === 'POST' ? db.campaign.create : db.campaign.update;
+  expect(write).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: expect.objectContaining({
+        ...body,
+        name: 'Campaign',
+        startDate: new Date(body.startDate),
+        endDate: new Date(body.endDate),
+      }),
+    })
+  );
+});
+
+it.each(['POST', 'PUT'])(
+  'validates ad slot price, type and optional fields on %s',
+  async (method) => {
+    const body = resources[1].body;
+    const path = method === 'POST' ? '/ad-slots' : '/ad-slots/owned';
+    for (const change of [
+      { basePrice: 0 },
+      { basePrice: -1 },
+      { basePrice: '100' },
+      { basePrice: true },
+      { basePrice: null },
+      { basePrice: 100_000_000 },
+      { basePrice: 1.001 },
+      { type: 'invalid' },
+      { type: 'toString' },
+      { type: [] },
+      { cpmFloor: -1 },
+      { position: 1 },
+      { position: 'bad\u0000position' },
+      { width: 0 },
+      { height: 1.5 },
+      { width: 2_147_483_648 },
+      { height: '100' },
+      { isAvailable: 'false' },
+      { isAvailable: null },
+    ]) {
+      expect((await request(path, 'publisher', method, { ...body, ...change })).status).toBe(400);
+    }
+    expect(db.adSlot.create).not.toHaveBeenCalled();
+    expect(db.adSlot.update).not.toHaveBeenCalled();
+  }
+);
+
+it.each(['POST', 'PUT'])(
+  'accepts all writable ad slot fields, including false and null, on %s',
+  async (method) => {
+    const body = {
+      ...resources[1].body,
+      name: ' Slot ',
+      description: null,
+      type: 'NEWSLETTER',
+      basePrice: 0.29,
+      position: 'Top',
+      width: 300,
+      height: null,
+      cpmFloor: 0,
+      isAvailable: false,
+    };
+    const response = await request(
+      method === 'POST' ? '/ad-slots' : '/ad-slots/owned',
+      'publisher',
+      method,
+      body
+    );
+    expect(response.status).toBe(method === 'POST' ? 201 : 200);
+    const write = method === 'POST' ? db.adSlot.create : db.adSlot.update;
+    expect(write).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ ...body, name: 'Slot' }) })
+    );
+  }
+);
+
+it('validates and writes campaign dates in one serializable transaction', async () => {
+  const tx = {
+    campaign: {
+      findUnique: vi
+        .fn()
+        .mockResolvedValue({ startDate: new Date('2026-10-21'), endDate: new Date('2026-10-22') }),
+      update: vi.fn().mockResolvedValue({ id: 'owned' }),
+    },
+  };
+  db.$transaction.mockImplementation(async (operation) => operation(tx));
+  expect(
+    (await request('/campaigns/owned', 'sponsor', 'PUT', { endDate: '2026-10-24' })).status
+  ).toBe(200);
+  expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+    isolationLevel: 'Serializable',
+  });
+  expect(tx.campaign.findUnique).toHaveBeenCalledWith({
+    where: { id: 'owned', sponsorId: 'sponsor-1' },
+    select: { startDate: true, endDate: true },
+  });
+  expect(tx.campaign.update).toHaveBeenCalledWith({
+    where: { id: 'owned', sponsorId: 'sponsor-1' },
+    data: { endDate: new Date('2026-10-24') },
+  });
+  expect(db.campaign.update).not.toHaveBeenCalled();
+});
+
+it('returns a retryable 409 for a campaign transaction conflict', async () => {
+  db.$transaction.mockRejectedValueOnce(
+    new Prisma.PrismaClientKnownRequestError('private conflict detail', {
+      code: 'P2034',
+      clientVersion: 'test',
+    })
+  );
+  const response = await request('/campaigns/owned', 'sponsor', 'PUT', { endDate: '2026-10-24' });
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: 'Campaign changed during this request; retry the update',
+  });
 });

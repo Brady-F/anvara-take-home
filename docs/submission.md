@@ -6,8 +6,8 @@ Please follow these instructions carefully to submit your work.
 
 ## Implementation Notes — Challenge 1
 
-Completed Challenges 1–3 (implementation notes below).
-Challenges 4–5 and bonuses remain pending.
+Completed Challenges 1–4 (implementation notes below).
+Challenge 5 and bonuses remain pending.
 
 - Replaced explicit `any` types in application code with typed API inputs/responses,
   component state, and utilities; removed unused code.
@@ -147,6 +147,82 @@ owner IDs, and the campaign helper delegates cache policy to the shared API clie
 The CORS test sets its own frontend origin so deployment environment variables cannot
 change the test's expected origin. Review assumed the take-home's local deployment;
 no load benchmark or production deployment review was performed.
+
+## Implementation Notes — Challenge 4
+
+- Added campaign and ad-slot PUT/DELETE endpoints using the existing authentication,
+  role, and ownership middleware. Final writes also include the session-derived owner
+  ID. Successful updates return the persisted resource with `200`; deletes return an
+  empty `204`. Missing resources return `404`, including deletion races reported by
+  Prisma; unexpected failures are logged and return generic JSON `500` responses.
+- Fixed ad-slot creation and applied the same validation to campaign/ad-slot creation
+  and updates. Request bodies must be objects containing supported writable fields.
+  Names cannot be blank; budgets/base prices must be positive JSON numbers fitting
+  Decimal(10,2). Optional rates/floors permit zero or null. Enum values, text, targeting
+  arrays, boolean availability, and positive integer dimensions are checked before
+  writing. Unknown/read-only fields and empty updates return `400`. Owner IDs may be
+  omitted or match the session; attempted ownership transfers return `403`.
+- PUT accepts partial updates, following the challenge's `{ name, budget }` example.
+  Omitted fields are preserved, nullable fields can be cleared, and empty targeting
+  arrays are supported. Dates accept calendar dates or ISO timestamps with a timezone;
+  invalid dates, year zero, and end dates at/before the start are rejected. A one-sided date update
+  is checked against the stored counterpart. Campaign creation retains empty targeting
+  defaults and Prisma's default DRAFT status when omitted.
+- Kept the existing database schema: campaign deletion cascades to its creatives and
+  placements; slot deletion cascades to its placements. Each delete is one Prisma
+  operation with database-enforced cascading, so no manual multi-table delete sequence
+  or separate transaction is needed. These endpoints perform hard deletes.
+- **Conflict decisions:** retained Challenge 3's documented owner-only policy and the
+  explicit `403` requirement in both challenges' checklists, despite Challenge 4's
+  conflicting `404` example. The public marketplace conflict and completion/grading
+  conflicts remain as documented above. No new public access, dashboard mutations,
+  frontend CRUD helpers, dependencies, schema changes, or bonus features were added;
+  dashboard controls and Server Actions remain Challenge 5 work.
+
+Validation used the cached pinned pnpm 11.21.0 executable. `pnpm typecheck`, `pnpm lint`,
+`pnpm test --run`, `pnpm exec dotenv -e .env -- pnpm build`, and targeted Prettier checks
+pass. There are 115 passing tests, including 34 added CRUD cases in the existing HTTP
+security suite, plus nine unchanged original API TODOs. Lint retains four existing
+frontend console warnings. The regression cases cover partial updates, supported and
+invalid fields, owner-derived writes, attempted transfers, authentication/roles,
+foreign/missing resources, empty delete responses, deletion races, and logged generic
+server failures. They mock the session/database boundaries; the separate live check
+below verifies actual persistence and cascades. Local socket permissions were needed
+for the HTTP tests, dev servers, and Next.js build.
+
+`pnpm dev` starts both services. A disposable live HTTP/Prisma smoke check authenticated
+both demo accounts with real signed cookies, created/read/listed/updated records,
+verified database persistence and decimal serialization, rejected invalid/foreign/
+missing/anonymous requests, and checked empty `204` deletes. Newly created creatives
+and placements verified actual PostgreSQL cascade behavior for both resource types.
+All smoke-test records and sessions were cleaned up; existing application records were
+not changed, and no reset or seed ran. The script and generated Next.js agent notes
+are retained outside the repository as disposable verification artifacts. No new UI
+was introduced or browser walkthrough performed for this backend challenge; no load
+benchmark was run. Challenge 4 is committed locally; GitHub publication remains pending.
+
+Review follow-up:
+
+- Fixed a concurrent-date-edit race: changing the start and end dates in separate
+  requests could validate both against the old dates, then save an inverted range.
+  Campaign PUT now reads, validates, and writes inside one serializable Prisma
+  transaction. A write conflict returns JSON `409` with an instruction to retry;
+  this adds the appropriate conflict response to the challenge's listed status codes.
+  No automatic retry loop or new dependency was added.
+- Confirmed PostgreSQL rejects null bytes in text and year-zero timestamps. These
+  inputs previously passed validation and caused `500`s. All writable text fields,
+  including targeting entries, now reject null bytes; dates reject year zero,
+  including timestamps whose timezone offset moves the UTC instant into year zero.
+  Invalid input returns `400` before a database write.
+- Extended the existing regression suite to cover those inputs, transaction scoping,
+  serializable isolation, and the `409` response. The added cases failed before the
+  fixes and passed afterward. A disposable real-database check forced two authenticated
+  HTTP date updates to read the same initial range: one returned `200`, one `409`, the
+  stored range stayed valid, and retrying the conflicting edit returned `400`. It also
+  verified the invalid text/date `400`s. Its new campaign and session were cleaned up.
+  Typecheck, lint, tests, build, and targeted formatting pass after the review. The
+  existing validation helpers remain small functions shared by both create/update
+  paths; no additional validation framework or abstraction was needed.
 
 ---
 

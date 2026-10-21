@@ -2,12 +2,15 @@ import { Router, type Response, type IRouter } from 'express';
 import { requireAuth, roleMiddleware, type AuthRequest } from '../auth.js';
 import { prisma, CampaignStatus } from '../db.js';
 import { getParam } from '../utils/helpers.js';
+import { campaignInput, checkDateRange, objectInput } from '../utils/mutation-input.js';
+import { mutationError } from '../utils/mutation-error.js';
+import { Prisma } from '../generated/prisma/client.js';
 
 const router: IRouter = Router();
 
 router.use(requireAuth, roleMiddleware(['SPONSOR']));
 
-// Check every ID route, including future PUT/DELETE handlers.
+// Check ownership before reading or mutating an individual campaign.
 router.use('/:id', async (req: AuthRequest, res, next) => {
   try {
     const resource = await prisma.campaign.findUnique({
@@ -93,42 +96,23 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 // POST /api/campaigns - Create new campaign
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const {
-      name,
-      description,
-      budget,
-      cpmRate,
-      cpcRate,
-      startDate,
-      endDate,
-      targetCategories,
-      targetRegions,
-      sponsorId,
-    } = req.body;
-
-    if (!name || !budget || !startDate || !endDate) {
-      res.status(400).json({
-        error: 'Name, budget, startDate, endDate are required',
-      });
-      return;
-    }
-
-    if (sponsorId !== undefined && sponsorId !== req.user!.sponsorId) {
+    const body = objectInput(req.body);
+    if (body.sponsorId !== undefined && body.sponsorId !== req.user!.sponsorId) {
       res.status(403).json({ error: 'Insufficient permissions' });
       return;
     }
+    const data = campaignInput(body);
 
     const campaign = await prisma.campaign.create({
       data: {
-        name,
-        description,
-        budget,
-        cpmRate,
-        cpcRate,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        targetCategories: targetCategories || [],
-        targetRegions: targetRegions || [],
+        ...data,
+        // Required fields were checked by campaignInput.
+        name: data.name!,
+        budget: data.budget!,
+        startDate: data.startDate!,
+        endDate: data.endDate!,
+        targetCategories: data.targetCategories ?? [],
+        targetRegions: data.targetRegions ?? [],
         sponsorId: req.user!.sponsorId!,
       },
       include: {
@@ -138,12 +122,57 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(campaign);
   } catch (error) {
-    console.error('Error creating campaign:', error);
-    res.status(500).json({ error: 'Failed to create campaign' });
+    mutationError(res, error, 'Campaign', 'create');
   }
 });
 
-// TODO: Add PUT /api/campaigns/:id endpoint
-// Update campaign details (name, budget, dates, status, etc.)
+// PUT /api/campaigns/:id - Update supplied campaign fields
+router.put('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const body = objectInput(req.body);
+    if (body.sponsorId !== undefined && body.sponsorId !== req.user!.sponsorId) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+    const data = campaignInput(body, true);
+    const where = { id: getParam(req.params.id), sponsorId: req.user!.sponsorId! };
+    // Keep validation and the write on the same snapshot when edits overlap.
+    const campaign = await prisma.$transaction(
+      async (tx) => {
+        const current = await tx.campaign.findUnique({
+          where,
+          select: { startDate: true, endDate: true },
+        });
+        if (!current) return null;
+        checkDateRange(data.startDate ?? current.startDate, data.endDate ?? current.endDate);
+        return tx.campaign.update({ where, data });
+      },
+      { isolationLevel: 'Serializable' }
+    );
+    if (!campaign) {
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
+    }
+    res.json(campaign);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      res.status(409).json({ error: 'Campaign changed during this request; retry the update' });
+      return;
+    }
+    mutationError(res, error, 'Campaign', 'update');
+  }
+});
+
+// DELETE /api/campaigns/:id - Schema cascades to creatives and placements
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.campaign.delete({
+      where: { id: getParam(req.params.id), sponsorId: req.user!.sponsorId! },
+    });
+    res.status(204).end();
+  } catch (error) {
+    mutationError(res, error, 'Campaign', 'delete');
+  }
+});
 
 export default router;

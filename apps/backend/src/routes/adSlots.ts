@@ -2,12 +2,14 @@ import { Router, type Response, type IRouter } from 'express';
 import { requireAuth, roleMiddleware, type AuthRequest } from '../auth.js';
 import { prisma, AdSlotType } from '../db.js';
 import { getParam } from '../utils/helpers.js';
+import { adSlotInput, objectInput } from '../utils/mutation-input.js';
+import { mutationError } from '../utils/mutation-error.js';
 
 const router: IRouter = Router();
 
 router.use(requireAuth, roleMiddleware(['PUBLISHER']));
 
-// Check every ID route, including future PUT/DELETE handlers and booking helpers.
+// Check ownership before reading or mutating an individual ad slot.
 router.use('/:id', async (req: AuthRequest, res, next) => {
   try {
     const resource = await prisma.adSlot.findUnique({
@@ -96,32 +98,22 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/ad-slots - Create new ad slot
-// BUG: No input validation for basePrice (could be negative or zero)
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, description, type, basePrice, publisherId } = req.body;
-
-    if (!name || !type || !basePrice) {
-      res.status(400).json({
-        error: 'Name, type, basePrice are required',
-      });
-      return;
-    }
-
-    // TODO: Validate that basePrice is positive
-    // TODO: Validate that 'type' is valid enum value
-
-    if (publisherId !== undefined && publisherId !== req.user!.publisherId) {
+    const body = objectInput(req.body);
+    if (body.publisherId !== undefined && body.publisherId !== req.user!.publisherId) {
       res.status(403).json({ error: 'Insufficient permissions' });
       return;
     }
+    const data = adSlotInput(body);
 
     const adSlot = await prisma.adSlot.create({
       data: {
-        name,
-        description,
-        type,
-        basePrice,
+        ...data,
+        // Required fields were checked by adSlotInput.
+        name: data.name!,
+        type: data.type!,
+        basePrice: data.basePrice!,
         publisherId: req.user!.publisherId!,
       },
       include: {
@@ -131,8 +123,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(adSlot);
   } catch (error) {
-    console.error('Error creating ad slot:', error);
-    res.status(500).json({ error: 'Failed to create ad slot' });
+    mutationError(res, error, 'Ad slot', 'create');
   }
 });
 
@@ -165,7 +156,35 @@ router.post('/:id/unbook', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// TODO: Add PUT /api/ad-slots/:id endpoint
-// TODO: Add DELETE /api/ad-slots/:id endpoint
+// PUT /api/ad-slots/:id - Update supplied ad slot fields
+router.put('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const body = objectInput(req.body);
+    if (body.publisherId !== undefined && body.publisherId !== req.user!.publisherId) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+    const data = adSlotInput(body, true);
+    const adSlot = await prisma.adSlot.update({
+      where: { id: getParam(req.params.id), publisherId: req.user!.publisherId! },
+      data,
+    });
+    res.json(adSlot);
+  } catch (error) {
+    mutationError(res, error, 'Ad slot', 'update');
+  }
+});
+
+// DELETE /api/ad-slots/:id - Schema cascades to placements
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.adSlot.delete({
+      where: { id: getParam(req.params.id), publisherId: req.user!.publisherId! },
+    });
+    res.status(204).end();
+  } catch (error) {
+    mutationError(res, error, 'Ad slot', 'delete');
+  }
+});
 
 export default router;

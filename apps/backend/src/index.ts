@@ -22,10 +22,14 @@ app.listen(PORT, () => {
   console.log('    GET    /api/campaigns');
   console.log('    GET    /api/campaigns/:id');
   console.log('    POST   /api/campaigns');
+  console.log('    PUT    /api/campaigns/:id');
+  console.log('    DELETE /api/campaigns/:id');
   console.log('  Ad Slots:');
   console.log('    GET    /api/ad-slots');
   console.log('    GET    /api/ad-slots/:id');
   console.log('    POST   /api/ad-slots');
+  console.log('    PUT    /api/ad-slots/:id');
+  console.log('    DELETE /api/ad-slots/:id');
   console.log('  Placements:');
   console.log('    GET    /api/placements');
   console.log('    POST   /api/placements');
