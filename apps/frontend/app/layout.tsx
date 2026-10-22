@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
+import './dashboard/dashboard.css';
 import { Nav } from './components/nav';
 
 // TODO: Add ErrorBoundary wrapper for graceful error handling

@@ -1,36 +1,31 @@
-// TODO: This should be a marketing landing page, not just a simple welcome screen
-// TODO: Add proper metadata for SEO (title, description, Open Graph)
-// TODO: Add hero section, features, testimonials, etc.
-// HINT: Check out the bonus challenge for marketing landing page!
+import Link from 'next/link';
 
 export default function Home() {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-      <h1 className="mb-4 text-4xl font-bold">Welcome to Anvara</h1>
-      <p className="mb-8 max-w-md text-[--color-muted]">
+    <div className="app-surface welcome-page">
+      <p className="dashboard-eyebrow">The sponsorship marketplace</p>
+      <h1>Welcome to Anvara</h1>
+      <p className="dashboard-muted mx-auto mt-4 mb-8 max-w-md">
         The sponsorship marketplace connecting sponsors with publishers.
       </p>
 
-      <div className="flex gap-4">
-        <a
-          href="/login"
-          className="rounded-lg bg-[--color-primary] px-6 py-3 text-white hover:bg-[--color-primary-hover]"
-        >
+      <div>
+        <Link href="/login" className="dashboard-button dashboard-button-primary">
           Get Started
-        </a>
+        </Link>
       </div>
 
-      <div className="mt-16 grid gap-8 text-left sm:grid-cols-2">
-        <div className="rounded-lg border border-[--color-border] p-6">
-          <h2 className="mb-2 text-lg font-semibold text-[--color-primary]">For Sponsors</h2>
-          <p className="text-sm text-[--color-muted]">
+      <div className="welcome-roles">
+        <div className="dashboard-card">
+          <h2>For sponsors</h2>
+          <p className="dashboard-card-description">
             Create campaigns, set budgets, and reach your target audience through premium
             publishers.
           </p>
         </div>
-        <div className="rounded-lg border border-[--color-border] p-6">
-          <h2 className="mb-2 text-lg font-semibold text-[--color-secondary]">For Publishers</h2>
-          <p className="text-sm text-[--color-muted]">
+        <div className="dashboard-card">
+          <h2>For publishers</h2>
+          <p className="dashboard-card-description">
             List your ad slots, set your rates, and connect with sponsors looking for your audience.
           </p>
         </div>

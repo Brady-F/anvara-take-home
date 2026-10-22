@@ -3,6 +3,7 @@
 import type { AdSlot } from '@/lib/types';
 import { createAdSlot, updateAdSlot, deleteAdSlot } from '../actions';
 import { FormField, MutationControls } from '../../components/mutation-controls';
+import { adSlotTypes } from '../../presentation';
 
 export function AdSlotEditor({ adSlot }: { adSlot?: AdSlot }) {
   return (
@@ -11,6 +12,7 @@ export function AdSlotEditor({ adSlot }: { adSlot?: AdSlot }) {
       deleteAction={adSlot ? deleteAdSlot.bind(null, adSlot.id) : undefined}
       label={adSlot ? 'Edit Ad Slot' : 'Create Ad Slot'}
       itemName="Ad slot"
+      itemTitle={adSlot?.name}
     >
       {(state) => (
         <>
@@ -33,6 +35,7 @@ export function AdSlotEditor({ adSlot }: { adSlot?: AdSlot }) {
             name="type"
             defaultValue={adSlot?.type ?? 'DISPLAY'}
             options={['DISPLAY', 'VIDEO', 'NATIVE', 'NEWSLETTER', 'PODCAST']}
+            optionLabels={adSlotTypes}
             error={state.fieldErrors?.type}
           />
           <FormField

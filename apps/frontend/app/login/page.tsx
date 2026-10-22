@@ -70,35 +70,42 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[--color-background]">
-      <div className="w-full max-w-md rounded-lg border border-[--color-border] p-6 shadow-sm">
-        <h1 className="mb-6 text-2xl font-bold">Login to Anvara</h1>
+    <div className="app-surface account-page">
+      <div className="account-panel">
+        <p className="dashboard-eyebrow">Welcome back</p>
+        <h1>Login to Anvara</h1>
+        <p className="dashboard-muted mt-3 mb-8">
+          Choose a demo account to explore your workspace.
+        </p>
 
         {error && (
-          <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-600">
+          <div role="alert" className="dashboard-form-error mb-4">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[--color-foreground]">
-              Quick Login As
+            <label htmlFor="login-role" className="block text-sm font-medium">
+              Account type
             </label>
             <select
+              id="login-role"
               value={role}
+              disabled={loading}
               onChange={(e) => setRole(e.target.value as 'sponsor' | 'publisher')}
-              className="mt-1 w-full rounded border border-[--color-border] bg-white px-3 py-2 text-gray-900"
+              className="dashboard-input"
             >
-              <option value="sponsor">Sponsor (sponsor@example.com)</option>
-              <option value="publisher">Publisher (publisher@example.com)</option>
+              <option value="sponsor">Sponsor</option>
+              <option value="publisher">Publisher</option>
             </select>
+            <p className="dashboard-muted mt-2 text-sm">{email}</p>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-[--color-primary] px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            className="dashboard-button dashboard-button-primary w-full"
           >
             {loading ? 'Logging in...' : `Login as ${role === 'sponsor' ? 'Sponsor' : 'Publisher'}`}
           </button>

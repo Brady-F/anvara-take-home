@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { authClient } from '@/auth-client';
 import type { RoleData } from '@/lib/auth-helpers';
@@ -10,6 +11,9 @@ type UserRole = 'sponsor' | 'publisher' | null;
 export function Nav() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
+  const pathname = usePathname();
+  const [signingOut, setSigningOut] = useState(false);
+  const [error, setError] = useState('');
   const [roleInfo, setRoleInfo] = useState<{ userId: string; role: UserRole } | null>(null);
   const role = roleInfo && roleInfo.userId === user?.id ? roleInfo.role : null;
 
@@ -28,73 +32,72 @@ export function Nav() {
     }
   }, [user?.id]);
 
-  // TODO: Add active link styling using usePathname() from next/navigation
-  // The current page's link should be highlighted differently
-
+  const dashboardPath = role ? `/dashboard/${role}` : null;
   return (
-    <header className="border-b border-[--color-border]">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between p-4">
-        <Link href="/" className="text-xl font-bold text-[--color-primary]">
+    <header className="app-header">
+      <nav className="app-nav" aria-label="Main navigation">
+        <Link href="/" className="app-wordmark">
           Anvara
         </Link>
-
-        <div className="flex items-center gap-6">
+        <div className="app-nav-links">
           <Link
             href="/marketplace"
-            className="text-[--color-muted] hover:text-[--color-foreground]"
+            aria-current={pathname.startsWith('/marketplace') ? 'page' : undefined}
           >
             Marketplace
           </Link>
-
-          {user && role === 'sponsor' && (
+          {user && dashboardPath && (
             <Link
-              href="/dashboard/sponsor"
-              className="text-[--color-muted] hover:text-[--color-foreground]"
+              href={dashboardPath}
+              aria-current={pathname === dashboardPath ? 'page' : undefined}
             >
-              My Campaigns
+              {role === 'sponsor' ? 'My Campaigns' : 'My Ad Slots'}
             </Link>
           )}
-          {user && role === 'publisher' && (
-            <Link
-              href="/dashboard/publisher"
-              className="text-[--color-muted] hover:text-[--color-foreground]"
-            >
-              My Ad Slots
-            </Link>
-          )}
-
+        </div>
+        <div className="app-account">
           {isPending ? (
-            <span className="text-[--color-muted]">...</span>
+            <span className="dashboard-muted text-sm" role="status">
+              Loading account...
+            </span>
           ) : user ? (
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-[--color-muted]">
-                {user.name} {role && `(${role})`}
-              </span>
+            <>
+              <div className="app-account-identity">
+                <span>{user.name}</span>
+                <small>{role}</small>
+              </div>
               <button
+                type="button"
+                className="app-logout"
+                disabled={signingOut}
                 onClick={async () => {
-                  await authClient.signOut({
-                    fetchOptions: {
-                      onSuccess: () => {
-                        window.location.href = '/';
-                      },
-                    },
-                  });
+                  setSigningOut(true);
+                  setError('');
+                  try {
+                    const result = await authClient.signOut();
+                    if (result.error) throw new Error('Sign out failed');
+                    window.location.href = '/';
+                  } catch {
+                    setError('Unable to log out. Please try again.');
+                    setSigningOut(false);
+                  }
                 }}
-                className="rounded bg-gray-600 px-3 py-1.5 text-sm text-white hover:bg-gray-500"
               >
-                Logout
+                {signingOut ? 'Logging out...' : 'Logout'}
               </button>
-            </div>
+            </>
           ) : (
-            <Link
-              href="/login"
-              className="rounded bg-[--color-primary] px-4 py-2 text-sm text-white hover:bg-[--color-primary-hover]"
-            >
+            <Link href="/login" className="dashboard-button dashboard-button-primary">
               Login
             </Link>
           )}
         </div>
       </nav>
+      {error && (
+        <p role="alert" className="app-nav-error">
+          {error}
+        </p>
+      )}
     </header>
   );
 }

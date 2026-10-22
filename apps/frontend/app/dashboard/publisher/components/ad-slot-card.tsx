@@ -1,43 +1,30 @@
 import type { AdSlot } from '@/lib/types';
+import { formatPrice } from '@/lib/utils';
+import { AdSlotFormat } from '@/app/components/ad-slot-format';
 import { AdSlotEditor } from './ad-slot-editor';
 
-interface AdSlotCardProps {
-  adSlot: AdSlot;
-}
-
-const typeColors: Record<string, string> = {
-  DISPLAY: 'bg-blue-100 text-blue-700',
-  VIDEO: 'bg-red-100 text-red-700',
-  NEWSLETTER: 'bg-purple-100 text-purple-700',
-  PODCAST: 'bg-orange-100 text-orange-700',
-};
-
-export function AdSlotCard({ adSlot }: AdSlotCardProps) {
+export function AdSlotCard({ adSlot }: { adSlot: AdSlot }) {
   return (
-    <div className="rounded-lg border border-[--color-border] p-4">
-      <div className="mb-2 flex items-start justify-between">
-        <h3 className="font-semibold">{adSlot.name}</h3>
-        <span className={`rounded px-2 py-0.5 text-xs ${typeColors[adSlot.type] || 'bg-gray-100'}`}>
-          {adSlot.type}
-        </span>
-      </div>
-
-      {adSlot.description && (
-        <p className="mb-3 text-sm text-[--color-muted] line-clamp-2">{adSlot.description}</p>
-      )}
-
-      <div className="flex items-center justify-between">
+    <article className="dashboard-card">
+      <div className="dashboard-card-heading">
+        <AdSlotFormat type={adSlot.type} />
         <span
-          className={`text-sm ${adSlot.isAvailable ? 'text-green-600' : 'text-[--color-muted]'}`}
+          className={`dashboard-status dashboard-status-${adSlot.isAvailable ? 'green' : 'neutral'}`}
         >
-          {adSlot.isAvailable ? 'Available' : 'Booked'}
-        </span>
-        <span className="font-semibold text-[--color-primary]">
-          ${Number(adSlot.basePrice).toLocaleString()}/mo
+          <span aria-hidden="true" />
+          {adSlot.isAvailable ? 'Available' : 'Unavailable'}
         </span>
       </div>
-
+      <h3>{adSlot.name}</h3>
+      <p className="dashboard-card-description">{adSlot.description || 'No description added.'}</p>
+      <div className="dashboard-card-details">
+        <p className="dashboard-money-label">Base price</p>
+        <p className="dashboard-money">
+          {formatPrice(Number(adSlot.basePrice))}
+          <span> / month</span>
+        </p>
+      </div>
       <AdSlotEditor adSlot={adSlot} />
-    </div>
+    </article>
   );
 }

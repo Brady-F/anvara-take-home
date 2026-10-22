@@ -9,19 +9,20 @@
 /* Custom theme variables - modify these to customize the marketplace look */
 :root {
   /* Primary brand colors */
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-primary-light: #818cf8;
+  --color-primary: #1d4ed8;
+  --color-primary-hover: #1741b8;
+  --color-primary-light: #eef3fc;
 
   /* Secondary colors */
   --color-secondary: #10b981;
   --color-secondary-hover: #059669;
 
   /* Neutral colors */
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
-  --color-muted: #64748b;
-  --color-border: #e2e8f0;
+  --color-background: #faf9f6;
+  --color-foreground: #222222;
+  --color-muted: #686660;
+  --color-border: #e7e5e0;
+  color-scheme: light;
 
   /* Status colors */
   --color-success: #22c55e;
@@ -30,16 +31,6 @@
 
   /* Spacing */
   --spacing-container: 1rem;
-}
-
-/* Dark mode support - TODO: Implement dark mode toggle */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0f172a;
-    --color-foreground: #f8fafc;
-    --color-muted: #94a3b8;
-    --color-border: #334155;
-  }
 }
 
 /* Base styles */
@@ -57,7 +48,7 @@ body {
 
 /*
  * HINT: Use Tailwind v4 arbitrary values with CSS vars:
- * - bg-[--color-primary] for custom backgrounds
- * - text-[--color-foreground] for custom text colors
- * - p-[--spacing-container] for custom spacing
+ * - bg-(--color-primary) for custom backgrounds
+ * - text-(--color-foreground) for custom text colors
+ * - p-(--spacing-container) for custom spacing
  */

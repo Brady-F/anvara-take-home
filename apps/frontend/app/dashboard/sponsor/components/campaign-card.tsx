@@ -1,57 +1,71 @@
 import type { Campaign } from '@/lib/types';
+import { formatPrice } from '@/lib/utils';
+import { campaignStatuses } from '../../presentation';
 import { CampaignEditor } from './campaign-editor';
 
-interface CampaignCardProps {
-  campaign: Campaign;
-}
-
-const statusColors: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-600',
-  ACTIVE: 'bg-green-100 text-green-700',
-  PAUSED: 'bg-yellow-100 text-yellow-700',
-  COMPLETED: 'bg-blue-100 text-blue-700',
+const statusTones: Record<Campaign['status'], string> = {
+  DRAFT: 'neutral',
+  PENDING_REVIEW: 'amber',
+  APPROVED: 'blue',
+  ACTIVE: 'green',
+  PAUSED: 'amber',
+  COMPLETED: 'blue',
+  CANCELLED: 'neutral',
 };
 
-export function CampaignCard({ campaign }: CampaignCardProps) {
+export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const progress =
     Number(campaign.budget) > 0 ? (Number(campaign.spent) / Number(campaign.budget)) * 100 : 0;
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  };
 
   return (
-    <div className="rounded-lg border border-[--color-border] p-4">
-      <div className="mb-2 flex items-start justify-between">
-        <h3 className="font-semibold">{campaign.name}</h3>
-        <span
-          className={`rounded px-2 py-0.5 text-xs ${statusColors[campaign.status] || 'bg-gray-100'}`}
-        >
-          {campaign.status}
+    <article className="dashboard-card">
+      <div className="dashboard-card-heading">
+        <span className={`dashboard-status dashboard-status-${statusTones[campaign.status]}`}>
+          <span aria-hidden="true" />
+          {campaignStatuses[campaign.status]}
         </span>
+        <span className="dashboard-card-kind">Campaign</span>
       </div>
-
-      {campaign.description && (
-        <p className="mb-3 text-sm text-[--color-muted] line-clamp-2">{campaign.description}</p>
-      )}
-
-      <div className="mb-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-[--color-muted]">Budget</span>
-          <span>
-            ${Number(campaign.spent).toLocaleString()} / ${Number(campaign.budget).toLocaleString()}
-          </span>
+      <h3>{campaign.name}</h3>
+      <p className="dashboard-card-description">
+        {campaign.description || 'No description added.'}
+      </p>
+      <div className="dashboard-card-details">
+        <p className="dashboard-money-label">Campaign budget</p>
+        <p className="dashboard-money">{formatPrice(Number(campaign.budget))}</p>
+        <div className="dashboard-spending">
+          <span>{formatPrice(Number(campaign.spent))} spent</span>
+          <span>{Math.round(progress)}% used</span>
         </div>
-        <div className="mt-1 h-1.5 rounded-full bg-gray-200">
-          <div
-            className="h-1.5 rounded-full bg-[--color-primary]"
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          />
+        <div
+          className="dashboard-progress"
+          role="progressbar"
+          aria-label="Budget used"
+          aria-valuenow={Math.max(0, Math.min(progress, 100))}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuetext={`${formatPrice(Number(campaign.spent))} of ${formatPrice(Number(campaign.budget))} spent`}
+        >
+          <div style={{ width: `${Math.max(0, Math.min(progress, 100))}%` }} />
         </div>
+        <p className="dashboard-dates">
+          <time dateTime={campaign.startDate}>
+            {new Date(campaign.startDate).toLocaleDateString('en-US', dateOptions)}
+          </time>
+          <span aria-hidden="true"> – </span>
+          <span className="sr-only"> to </span>
+          <time dateTime={campaign.endDate}>
+            {new Date(campaign.endDate).toLocaleDateString('en-US', dateOptions)}
+          </time>
+        </p>
       </div>
-
-      <div className="text-xs text-[--color-muted]">
-        {new Date(campaign.startDate).toLocaleDateString('en-US', { timeZone: 'UTC' })} -{' '}
-        {new Date(campaign.endDate).toLocaleDateString('en-US', { timeZone: 'UTC' })}
-      </div>
-
       <CampaignEditor campaign={campaign} />
-    </div>
+    </article>
   );
 }

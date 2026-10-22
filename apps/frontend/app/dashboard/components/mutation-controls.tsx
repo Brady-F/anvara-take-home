@@ -4,61 +4,88 @@ import {
   createContext,
   useActionState,
   useContext,
+  useEffect,
   useId,
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { FormAction, FormState } from '../form-state';
+import { Dialog } from './dialog';
 
 const FeedbackContext = createContext<(message: string) => void>(() => {});
 
+export function ApplyFilters() {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" className="dashboard-button" disabled={pending}>
+      {pending ? 'Applying...' : 'Apply'}
+    </button>
+  );
+}
+
 export function DashboardFeedback({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    // A later server refresh may remove the card that received focus when its dialog closed.
+    if (message && document.activeElement === document.body) {
+      document.querySelector<HTMLElement>('[data-dashboard-create]')?.focus();
+    }
+  }, [children, message]);
   return (
     <FeedbackContext value={setMessage}>
-      <p role="status" className="text-green-700 dark:text-green-400">
-        {message}
-      </p>
       {children}
+      <div className="dashboard-feedback" role="status">
+        {message && (
+          <div className="dashboard-notice">
+            <span>{message}</span>
+            <button
+              type="button"
+              className="dashboard-text-button"
+              onClick={() => setMessage('')}
+              aria-label="Dismiss notification"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+      </div>
     </FeedbackContext>
   );
 }
 
 function FormContents({
   children,
-  deleting = false,
+  deleting,
   cancel,
-  editButton,
-  hideSubmit = false,
 }: {
-  children?: ReactNode;
-  deleting?: boolean;
-  cancel?: () => void;
-  editButton?: ReactNode;
-  hideSubmit?: boolean;
+  children: ReactNode;
+  deleting: boolean;
+  cancel: () => void;
 }) {
   const { pending } = useFormStatus();
   return (
-    <fieldset disabled={pending} className="min-w-0 space-y-3">
-      {children}
-      <div className="flex gap-3">
-        {editButton}
-        {!hideSubmit && (
-          <button
-            type="submit"
-            disabled={pending}
-            className={`rounded border px-3 py-2 disabled:opacity-50 ${deleting ? 'text-red-700 dark:text-red-400' : ''}`}
-          >
-            {pending ? (deleting ? 'Deleting...' : 'Saving...') : deleting ? 'Delete' : 'Save'}
-          </button>
-        )}
-        {cancel && (
-          <button type="button" disabled={pending} onClick={cancel} className="underline">
-            Cancel
-          </button>
-        )}
+    <fieldset disabled={pending} className="min-w-0">
+      <div className="dashboard-form-fields">{children}</div>
+      <div className="dashboard-form-footer">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={cancel}
+          className="dashboard-button"
+          data-autofocus={deleting || undefined}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={pending}
+          className={`dashboard-button ${deleting ? 'dashboard-button-danger' : 'dashboard-button-primary'}`}
+        >
+          {pending ? (deleting ? 'Deleting...' : 'Saving...') : deleting ? 'Delete' : 'Save'}
+        </button>
       </div>
     </fieldset>
   );
@@ -70,43 +97,63 @@ function ActionForm({
   onSuccess,
   cancel,
   label,
+  returnFocus,
+  deleting = false,
 }: {
   action: FormAction;
   children: (state: FormState) => ReactNode;
   onSuccess: () => void;
   cancel: () => void;
   label: string;
+  returnFocus: RefObject<HTMLElement | null>;
+  deleting?: boolean;
 }) {
-  const [state, formAction] = useActionState(async (previous: FormState, data: FormData) => {
-    try {
-      const result = await action(previous, data);
-      if (result.success) onSuccess();
-      return result;
-    } catch {
-      return { error: 'Unable to save your changes. Please try again.' };
-    }
-  }, {});
+  const form = useRef<HTMLFormElement>(null);
+  const [state, formAction, pending] = useActionState(
+    async (previous: FormState, data: FormData) => {
+      try {
+        const result = await action(previous, data);
+        if (result.success) onSuccess();
+        return result;
+      } catch {
+        return {
+          error: deleting
+            ? 'Unable to delete this item. Please try again.'
+            : 'Unable to save your changes. Please try again.',
+        };
+      }
+    },
+    {}
+  );
+
+  useEffect(() => {
+    form.current?.querySelector<HTMLElement>('[aria-invalid="true"], [role="alert"]')?.focus();
+  }, [state]);
+
   return (
-    <form
-      action={formAction}
-      aria-label={label}
-      noValidate
-      className="mt-3 space-y-3 rounded border p-4"
+    <Dialog
+      title={label}
+      pending={pending}
+      onClose={cancel}
+      returnFocus={returnFocus}
+      compact={deleting}
     >
-      <FormContents cancel={cancel}>
-        {children(state)}
-        {state.fieldErrors && (
-          <p role="alert" className="text-red-700 dark:text-red-400">
-            Please correct the highlighted fields.
-          </p>
-        )}
-        {state.error && (
-          <p role="alert" className="text-red-700 dark:text-red-400">
-            {state.error}
-          </p>
-        )}
-      </FormContents>
-    </form>
+      <form ref={form} action={formAction} aria-label={label} noValidate>
+        <FormContents deleting={deleting} cancel={cancel}>
+          {children(state)}
+          {state.fieldErrors && (
+            <p role="alert" tabIndex={-1} className="dashboard-form-error">
+              Please correct the highlighted fields.
+            </p>
+          )}
+          {state.error && (
+            <p role="alert" tabIndex={-1} className="dashboard-form-error">
+              {state.error}
+            </p>
+          )}
+        </FormContents>
+      </form>
+    </Dialog>
   );
 }
 
@@ -115,53 +162,63 @@ export function MutationControls({
   deleteAction,
   label,
   itemName,
+  itemTitle,
   children,
 }: {
   action: FormAction;
   deleteAction?: FormAction;
   label: string;
   itemName: string;
+  itemTitle?: string;
   children: (state: FormState) => ReactNode;
 }) {
   // shortcut: forms need JavaScript; use native disclosures and direct actions if no-script access is required.
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const [view, setView] = useState<'edit' | 'delete' | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const report = useContext(FeedbackContext);
-  const close = () => {
-    setOpen(false);
-    trigger.current?.focus();
-  };
-  const triggerButton = (
-    <button
-      ref={trigger}
-      type="button"
-      onClick={() => {
-        report('');
-        setOpen(true);
-      }}
-      aria-expanded={open}
-      className="rounded border px-3 py-2"
-    >
-      {label}
-    </button>
-  );
+  const close = () => setView(null);
   return (
-    <div className="mt-3">
-      {deleteAction ? (
-        <DeleteForm
-          action={deleteAction}
-          itemName={itemName}
-          editButton={triggerButton}
-          editing={open}
-        />
-      ) : (
-        triggerButton
+    <div className={deleteAction ? 'dashboard-card-actions' : ''}>
+      <button
+        type="button"
+        data-dashboard-create={!deleteAction || undefined}
+        disabled={view !== null}
+        onClick={(event) => {
+          returnFocus.current = event.currentTarget;
+          report('');
+          setView('edit');
+        }}
+        aria-haspopup="dialog"
+        className={`dashboard-button ${deleteAction ? '' : 'dashboard-button-primary'}`}
+      >
+        {!deleteAction && (
+          <span aria-hidden="true" className="text-xl leading-none">
+            +
+          </span>
+        )}
+        {label}
+      </button>
+      {deleteAction && (
+        <button
+          type="button"
+          className="dashboard-text-button dashboard-delete"
+          disabled={view !== null}
+          aria-haspopup="dialog"
+          onClick={(event) => {
+            returnFocus.current = event.currentTarget;
+            report('');
+            setView('delete');
+          }}
+        >
+          Delete
+        </button>
       )}
-      {open && (
+      {view === 'edit' && (
         <ActionForm
           action={action}
           label={label}
           cancel={close}
+          returnFocus={returnFocus}
           onSuccess={() => {
             report(`${itemName} saved successfully.`);
             close();
@@ -170,51 +227,28 @@ export function MutationControls({
           {children}
         </ActionForm>
       )}
-    </div>
-  );
-}
-
-function DeleteForm({
-  action,
-  itemName,
-  editButton,
-  editing,
-}: {
-  action: FormAction;
-  itemName: string;
-  editButton: ReactNode;
-  editing: boolean;
-}) {
-  const report = useContext(FeedbackContext);
-  const [state, formAction] = useActionState(async (previous: FormState, data: FormData) => {
-    try {
-      const result = await action(previous, data);
-      if (result.success) report(`${itemName} deleted successfully.`);
-      return result;
-    } catch {
-      return { error: 'Unable to delete this item. Please try again.' };
-    }
-  }, {});
-  return (
-    <form
-      action={formAction}
-      onSubmit={(event) => {
-        report('');
-        if (
-          !window.confirm(
-            `Delete ${itemName}? This also deletes its related placements${itemName === 'Campaign' ? ' and creatives' : ''}. This cannot be undone.`
-          )
-        )
-          event.preventDefault();
-      }}
-    >
-      <FormContents deleting editButton={editButton} hideSubmit={editing} />
-      {!editing && state.error && (
-        <p role="alert" className="mt-2 text-red-700 dark:text-red-400">
-          {state.error}
-        </p>
+      {view === 'delete' && deleteAction && (
+        <ActionForm
+          action={deleteAction}
+          label={`Delete ${itemName.toLowerCase()}?`}
+          cancel={close}
+          returnFocus={returnFocus}
+          deleting
+          onSuccess={() => {
+            returnFocus.current = document.querySelector<HTMLElement>('[data-dashboard-create]');
+            report(`${itemName} deleted successfully.`);
+            close();
+          }}
+        >
+          {() => (
+            <p className="dashboard-delete-copy">
+              Delete <strong>{itemTitle}</strong>? This also deletes its related placements
+              {itemName === 'Campaign' ? ' and creatives' : ''}. This cannot be undone.
+            </p>
+          )}
+        </ActionForm>
       )}
-    </form>
+    </div>
   );
 }
 
@@ -251,10 +285,10 @@ export function FormField({
     value,
     'aria-invalid': !!error,
     'aria-describedby': error ? `${id}-error` : undefined,
-    className: 'mt-1 w-full rounded border bg-transparent px-3 py-2',
+    className: 'dashboard-input',
   };
   return (
-    <div>
+    <div className="dashboard-field">
       <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
@@ -277,7 +311,7 @@ export function FormField({
         />
       )}
       {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-red-700 dark:text-red-400">
+        <p id={`${id}-error`} className="dashboard-field-error">
           {error}
         </p>
       )}

@@ -1,17 +1,23 @@
 import type { AdSlot } from '@/lib/types';
 import { AdSlotCard } from './ad-slot-card';
+import { DashboardEmpty } from '../../components/dashboard-ui';
 
-export function AdSlotList({ adSlots }: { adSlots: AdSlot[] }) {
+export function AdSlotList({
+  adSlots,
+  filtered = false,
+}: {
+  adSlots: AdSlot[];
+  filtered?: boolean;
+}) {
   if (adSlots.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-[--color-border] p-8 text-center text-[--color-muted]">
-        No ad slots yet. Create your first ad slot to start earning.
-      </div>
+      <DashboardEmpty noun="ad slots" path="/dashboard/publisher" filtered={filtered}>
+        Create your first ad slot to set your price and make space for your next sponsor.
+      </DashboardEmpty>
     );
   }
-
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="dashboard-grid">
       {adSlots.map((slot) => (
         <AdSlotCard key={slot.id} adSlot={slot} />
       ))}

@@ -4,6 +4,7 @@ import type { Campaign } from '@/lib/types';
 import { createCampaign, updateCampaign, deleteCampaign } from '../actions';
 import { FormField, MutationControls } from '../../components/mutation-controls';
 import type { FormState } from '../../form-state';
+import { campaignStatuses } from '../../presentation';
 
 export function CampaignEditor({ campaign }: { campaign?: Campaign }) {
   async function saveCampaign(previous: FormState, form: FormData) {
@@ -21,6 +22,7 @@ export function CampaignEditor({ campaign }: { campaign?: Campaign }) {
       deleteAction={campaign ? deleteCampaign.bind(null, campaign.id) : undefined}
       label={campaign ? 'Edit Campaign' : 'Create Campaign'}
       itemName="Campaign"
+      itemTitle={campaign?.name}
     >
       {(state) => (
         <>
@@ -78,6 +80,7 @@ export function CampaignEditor({ campaign }: { campaign?: Campaign }) {
               'COMPLETED',
               'CANCELLED',
             ]}
+            optionLabels={campaignStatuses}
             error={state.fieldErrors?.status}
           />
         </>

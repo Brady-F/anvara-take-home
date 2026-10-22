@@ -4,13 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAdSlots } from '@/lib/api';
 import type { AdSlot } from '@/lib/types';
-
-const typeColors: Record<string, string> = {
-  DISPLAY: 'bg-blue-100 text-blue-700',
-  VIDEO: 'bg-red-100 text-red-700',
-  NEWSLETTER: 'bg-purple-100 text-purple-700',
-  PODCAST: 'bg-orange-100 text-orange-700',
-};
+import { formatPrice } from '@/lib/utils';
+import { AdSlotFormat } from '@/app/components/ad-slot-format';
 
 export function AdSlotGrid() {
   const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
@@ -25,58 +20,85 @@ export function AdSlotGrid() {
   }, []);
 
   if (loading) {
-    return <div className="py-12 text-center text-[--color-muted]">Loading marketplace...</div>;
+    return (
+      <div role="status">
+        <span className="sr-only">Loading marketplace...</span>
+        <div className="dashboard-grid" aria-hidden="true">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="dashboard-skeleton h-80" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="rounded border border-red-200 bg-red-50 p-4 text-red-600">{error}</div>;
+    return (
+      <div role="alert" className="dashboard-empty">
+        <h2>We couldn’t load the marketplace.</h2>
+        <p>{error}. Check your account access or try again.</p>
+        <button type="button" className="dashboard-button" onClick={() => window.location.reload()}>
+          Try again
+        </button>
+      </div>
+    );
   }
 
   if (adSlots.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-[--color-border] p-12 text-center text-[--color-muted]">
-        No ad slots available at the moment.
+      <div className="dashboard-empty">
+        <h2>No ad slots yet.</h2>
+        <p>Your listings will appear here once they’re added.</p>
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {adSlots.map((slot) => (
-        <Link
-          key={slot.id}
-          href={`/marketplace/${slot.id}`}
-          className="block rounded-lg border border-[--color-border] p-4 transition-shadow hover:shadow-md"
-        >
-          <div className="mb-2 flex items-start justify-between">
-            <h3 className="font-semibold">{slot.name}</h3>
-            <span
-              className={`rounded px-2 py-0.5 text-xs ${typeColors[slot.type] || 'bg-gray-100'}`}
-            >
-              {slot.type}
-            </span>
-          </div>
+    <div>
+      <div className="dashboard-results-heading">
+        <h2>
+          Ad placements <span>{adSlots.length}</span>
+        </h2>
+      </div>
+      <div className="dashboard-grid">
+        {adSlots.map((slot) => (
+          <Link
+            key={slot.id}
+            href={`/marketplace/${slot.id}`}
+            className="dashboard-card marketplace-card"
+          >
+            <div className="dashboard-card-heading">
+              <AdSlotFormat type={slot.type} />
+              <span
+                className={`dashboard-status dashboard-status-${slot.isAvailable ? 'green' : 'neutral'}`}
+              >
+                <span aria-hidden="true" />
+                {slot.isAvailable ? 'Available' : 'Unavailable'}
+              </span>
+            </div>
 
-          {slot.publisher && (
-            <p className="mb-2 text-sm text-[--color-muted]">by {slot.publisher.name}</p>
-          )}
+            <h3>{slot.name}</h3>
+            {slot.publisher && (
+              <p className="dashboard-muted mt-1 text-sm">by {slot.publisher.name}</p>
+            )}
 
-          {slot.description && (
-            <p className="mb-3 text-sm text-[--color-muted] line-clamp-2">{slot.description}</p>
-          )}
+            <p className="dashboard-card-description">
+              {slot.description || 'No description added.'}
+            </p>
 
-          <div className="flex items-center justify-between">
-            <span
-              className={`text-sm ${slot.isAvailable ? 'text-green-600' : 'text-[--color-muted]'}`}
-            >
-              {slot.isAvailable ? 'Available' : 'Booked'}
-            </span>
-            <span className="font-semibold text-[--color-primary]">
-              ${Number(slot.basePrice).toLocaleString()}/mo
-            </span>
-          </div>
-        </Link>
-      ))}
+            <div className="dashboard-card-details">
+              <p className="dashboard-money-label">Base price</p>
+              <p className="dashboard-money">
+                {formatPrice(Number(slot.basePrice))}
+                <span> / month</span>
+              </p>
+            </div>
+            <div className="marketplace-card-footer">
+              View placement <span aria-hidden="true">↗</span>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

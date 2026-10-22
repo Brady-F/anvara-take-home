@@ -6,8 +6,8 @@ Please follow these instructions carefully to submit your work.
 
 ## Implementation Notes — Challenge 1
 
-Completed Challenges 1–5 (implementation notes below).
-Bonuses remain pending.
+Completed Challenges 1–5 and Design Bonus 2: Dashboard UI/UX (implementation notes below).
+Other bonuses remain pending.
 
 - Replaced explicit `any` types in application code with typed API inputs/responses,
   component state, and utilities; removed unused code.
@@ -310,6 +310,84 @@ Review validation: typecheck, lint, all 164 tests, the production build with the
 and four existing console lint warnings remain. Browser checks and database-backed
 reads described above supplement the mocked regression tests; no production load test
 or no-script implementation was added.
+
+## Implementation Notes — Design Bonus 2: Dashboard UI/UX
+
+- Redesigned both dashboards and shared navigation with a warm, consistently light
+  canvas, Anvara blue actions, system typography, compact summaries, and responsive
+  three/two/one-column cards. The reference was Airbnb's
+  [listing management](https://www.airbnb.com/resources/hosting-homes/a/introducing-the-listings-tab-638):
+  clear item details and accessible actions. Financial details and restrained format
+  icons establish card identity without invented analytics or cover imagery.
+- Added URL-based name search, status/availability/format filters, and sorting through
+  a GET form. Invalid query values fall back safely. Filtering runs on the server over
+  the already-authorized list; summary values always use the complete owned dataset.
+  Selections survive reload, Back, and mutations. This suits the take-home dataset;
+  larger inventories would need API filtering and pagination.
+- Replaced inline editors and browser confirmations with a small native-dialog
+  component. Forms retain input after failure, focus invalid fields, disable controls
+  and dismissal while pending, and restore focus when closed. When an updated or
+  deleted item disappears, focus returns to Create. Deletion names the item and its
+  existing placement/creative cascade, with Cancel focused initially. Success notices
+  remain until dismissed or another mutation starts.
+- Kept the existing Server Actions, validation, ownership and `403` decisions,
+  successful-only revalidation, currency cents, and UTC date/timestamp behavior.
+  Lists, summaries, cards, and query filtering remain server-rendered. Client code
+  handles navigation, dialogs/forms, Apply pending feedback, and notices. No new
+  dependencies, API/schema changes, or dark-mode switch were added. Mutation dialogs
+  still require JavaScript.
+- A requested visual follow-up carries the same light design through marketplace
+  listings/details, login, and the welcome page used before/after login. Shared format
+  icons, readable availability, and precise monthly prices now match the dashboards.
+  The native selects retain their behavior with a chevron inset 14px from the edge.
+  Blue field outlines are removed; a neutral fill identifies focused fields, and
+  links/buttons retain a neutral keyboard outline. Below 360px, dashboard filters
+  stack to avoid truncating longer selections. Existing marketplace access and booking
+  permissions are unchanged.
+
+Validation with pnpm 11.21.0: typecheck, lint, all **181 tests** (93 backend and 88
+frontend), production build with the root environment loaded, targeted Prettier checks,
+and `git diff --check` pass. The nine original API TODOs and four existing console lint
+warnings remain. New coverage checks combined filters, sorting/defaults, summaries
+independent of filters, empty results, every status/format label, cents, UTC dates,
+dialogs, retained invalid input, pending controls, rejected requests, feedback, focus
+restoration after refresh, navigation, and logout failure. Existing ownership, action
+payload, timestamp-preservation, revalidation, and server-rendering tests were retained.
+The DOM test environment simulates native dialog methods; browser checks supplement it.
+Follow-up tests verify marketplace links/labels/cents and safe failures, plus account
+selection and disabled login controls during a request and recovery after rejection.
+
+Browser verification covered both roles at 1440px, 768px, 390px, and a 320px overflow
+check. Checks included long names, maximum supported amounts, mobile dialogs, keyboard
+focus/Escape, 200% Chrome zoom and dialog scrolling, and shared navigation on login and
+marketplace pages. Chrome media emulation confirmed a light dashboard under a dark
+preference and zero transition duration with reduced motion. Core text, primary-action,
+and status colors exceed 4.5:1 contrast. Loading skeletons, filtered-empty states,
+pending controls, validation, API failure, and retry recovery were inspected; empty
+accounts are covered by component tests without clearing seeded data.
+
+Both demo roles created and edited disposable records in the browser. Real Next.js
+delete actions were exercised over HTTP, and follow-up reads confirmed both records
+were removed; browser checks covered the named confirmation and cancellation. Pausing
+the local API verified pending behavior, and restarting it verified error recovery.
+The production Chrome console showed no application errors. No reset, seed, commit,
+push, or production deployment was performed. Screenshots use existing demo data.
+
+| Dashboard | Desktop (1440px)                                          | Mobile (390px)                                           |
+| --------- | --------------------------------------------------------- | -------------------------------------------------------- |
+| Sponsor   | [Screenshot](screenshots/dashboard/sponsor-desktop.jpg)   | [Screenshot](screenshots/dashboard/sponsor-mobile.jpg)   |
+| Publisher | [Screenshot](screenshots/dashboard/publisher-desktop.jpg) | [Screenshot](screenshots/dashboard/publisher-mobile.jpg) |
+
+Follow-up screenshots: [field focus and arrows](screenshots/interface/controls-focus.jpg),
+[marketplace desktop](screenshots/interface/marketplace-desktop.jpg),
+[marketplace mobile](screenshots/interface/marketplace-mobile.jpg),
+[listing details](screenshots/interface/listing-detail-desktop.jpg),
+[login desktop](screenshots/interface/login-desktop.jpg),
+[login mobile](screenshots/interface/login-mobile.jpg), and
+[welcome page](screenshots/interface/welcome-desktop.jpg).
+Browser checks confirmed both demo sign-ins, logout, listing navigation, dropdown
+selection, dialog field styling, and layouts down to 320px. This visual follow-up
+did not create, book, reset, or delete application records.
 
 ## Quick Submission Steps
 

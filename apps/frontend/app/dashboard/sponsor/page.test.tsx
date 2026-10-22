@@ -38,13 +38,16 @@ describe('sponsor dashboard rendering', () => {
   it('includes campaign data in server-rendered HTML', async () => {
     vi.mocked(getSponsorCampaigns).mockResolvedValue([campaign]);
 
-    const html = renderToStaticMarkup(await SponsorDashboard());
+    const html = renderToStaticMarkup(
+      await SponsorDashboard({ searchParams: Promise.resolve({}) })
+    );
 
     expect(html).toContain('My Campaigns');
     expect(html).toContain('Summer launch');
     expect(html).toContain('Reach new readers');
-    expect(html).toContain('ACTIVE');
-    expect(html).toContain('$250 / $1,000');
+    expect(html).toContain('Active');
+    expect(html).toContain('$250.00');
+    expect(html).toContain('$1,000.00');
     expect(html).toContain('width:25%');
   });
 
@@ -52,15 +55,20 @@ describe('sponsor dashboard rendering', () => {
     vi.stubEnv('TZ', 'America/New_York');
     vi.mocked(getSponsorCampaigns).mockResolvedValue([campaign]);
 
-    const html = renderToStaticMarkup(await SponsorDashboard());
+    const html = renderToStaticMarkup(
+      await SponsorDashboard({ searchParams: Promise.resolve({}) })
+    );
 
-    expect(html).toContain('6/1/2026 - 7/1/2026');
+    expect(html).toContain('Jun 1, 2026');
+    expect(html).toContain('Jul 1, 2026');
   });
 
   it('keeps the empty state when no campaigns exist', async () => {
     vi.mocked(getSponsorCampaigns).mockResolvedValue([]);
 
-    expect(renderToStaticMarkup(await SponsorDashboard())).toContain('No campaigns yet.');
+    expect(
+      renderToStaticMarkup(await SponsorDashboard({ searchParams: Promise.resolve({}) }))
+    ).toContain('No campaigns yet.');
   });
 
   it('announces loading while the route is pending', () => {
@@ -77,4 +85,19 @@ describe('sponsor dashboard rendering', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(retry).toHaveBeenCalledOnce();
   });
+});
+
+it('keeps account totals independent of filtered results and displays an actionable no-match state', async () => {
+  vi.mocked(getSponsorCampaigns).mockResolvedValue([
+    campaign,
+    { ...campaign, id: '2', status: 'DRAFT', budget: '500.25', spent: '50.10' },
+  ]);
+  const html = renderToStaticMarkup(
+    await SponsorDashboard({ searchParams: Promise.resolve({ q: 'missing' }) })
+  );
+  expect(html).toContain('$1,500.25');
+  expect(html).toContain('$300.10');
+  expect(html).toContain('No matching campaigns');
+  expect(html).toContain('Clear filters');
+  expect(html).toContain('value="missing"');
 });

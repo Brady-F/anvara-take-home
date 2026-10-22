@@ -1,7 +1,5 @@
-export default function PublisherLoading() {
-  return (
-    <div role="status" className="py-8 text-center text-[--color-muted]">
-      Loading ad slots...
-    </div>
-  );
+import { DashboardLoading } from '../components/dashboard-ui';
+
+export default function Loading() {
+  return <DashboardLoading noun="ad slots" />;
 }
