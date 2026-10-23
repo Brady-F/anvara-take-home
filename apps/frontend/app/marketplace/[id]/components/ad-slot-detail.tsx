@@ -1,5 +1,7 @@
 'use client';
 
+import { PendingLabel } from '@/app/components/skeleton';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, ApiError, getMarketplaceAdSlot } from '@/lib/api';
@@ -8,6 +10,8 @@ import { authClient } from '@/auth-client';
 import type { AdSlot } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { AdSlotFormat } from '@/app/components/ad-slot-format';
+
+import { AdSlotDetailSkeleton } from './ad-slot-detail-skeleton';
 
 interface Props {
   id: string;
@@ -52,11 +56,7 @@ export function AdSlotDetail({ id }: Props) {
   };
 
   if (loading) {
-    return (
-      <div role="status" className="dashboard-muted py-12 text-center">
-        Loading...
-      </div>
-    );
+    return <AdSlotDetailSkeleton />;
   }
 
   if (error || !adSlot) {
@@ -137,7 +137,9 @@ export function AdSlotDetail({ id }: Props) {
                   aria-busy={resetting}
                   className="dashboard-text-button ml-2"
                 >
-                  {resetting ? 'Resetting...' : 'Reset listing'}
+                  <PendingLabel pending={resetting} label="Resetting...">
+                    Reset listing
+                  </PendingLabel>
                 </button>
               )}
           </div>

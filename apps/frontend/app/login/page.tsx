@@ -1,5 +1,7 @@
 'use client';
 
+import { PendingLabel } from '@/app/components/skeleton';
+
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -108,7 +110,10 @@ export default function LoginPage() {
             aria-busy={loading}
             className="dashboard-button dashboard-button-primary w-full"
           >
-            {loading ? 'Logging in...' : `Login as ${role === 'sponsor' ? 'Sponsor' : 'Publisher'}`}
+            <PendingLabel
+              pending={loading}
+              label="Logging in..."
+            >{`Login as ${role === 'sponsor' ? 'Sponsor' : 'Publisher'}`}</PendingLabel>
           </button>
         </form>
       </div>

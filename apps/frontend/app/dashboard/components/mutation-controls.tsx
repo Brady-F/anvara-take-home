@@ -1,5 +1,7 @@
 'use client';
 
+import { PendingLabel } from '@/app/components/skeleton';
+
 import {
   createContext,
   useActionState,
@@ -23,7 +25,9 @@ export function ApplyFilters() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="dashboard-button" disabled={pending} aria-busy={pending}>
-      {pending ? 'Applying...' : 'Apply'}
+      <PendingLabel pending={pending} label="Applying...">
+        Apply
+      </PendingLabel>
     </button>
   );
 }
@@ -113,7 +117,9 @@ function FormContents({
           aria-busy={pending}
           className={`dashboard-button ${deleting ? 'dashboard-button-danger' : 'dashboard-button-primary'}`}
         >
-          {pending ? (deleting ? 'Deleting...' : 'Saving...') : deleting ? 'Delete' : 'Save'}
+          <PendingLabel pending={pending} label={deleting ? 'Deleting...' : 'Saving...'}>
+            {deleting ? 'Delete' : 'Save'}
+          </PendingLabel>
         </button>
       </div>
     </fieldset>

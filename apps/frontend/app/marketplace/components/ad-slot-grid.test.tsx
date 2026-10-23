@@ -39,6 +39,10 @@ it('shows a safe failure after loading instead of exposing request details', asy
   vi.mocked(getMarketplaceAdSlots).mockRejectedValue(new Error('private infrastructure details'));
   render(<AdSlotGrid />);
   expect(screen.getByRole('status').textContent).toContain('Loading marketplace');
+  expect(screen.getByRole('status').querySelectorAll('.dashboard-card')).toHaveLength(3);
+  expect(
+    screen.getByRole('status').querySelector('.dashboard-card-details .dashboard-skeleton')
+  ).toBeTruthy();
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain('We couldn’t load the marketplace');
   expect(alert.textContent).not.toContain('private infrastructure details');

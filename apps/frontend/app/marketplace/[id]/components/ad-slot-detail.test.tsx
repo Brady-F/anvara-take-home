@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AdSlotDetail } from './ad-slot-detail';
 import { api, getMarketplaceAdSlot } from '@/lib/api';
 import { getUserRole } from '@/lib/auth-helpers';
@@ -57,4 +57,25 @@ it('allows the owning publisher to reset an unavailable listing and reports fail
   await screen.findByText('Available');
   expect(api).toHaveBeenLastCalledWith('/api/ad-slots/listing/unbook', { method: 'POST' });
   expect(screen.queryByRole('button')).toBeNull();
+});
+
+it('shows a detailed skeleton and a usable back link until placement data arrives', async () => {
+  let finish!: (value: typeof slot) => void;
+  vi.mocked(getMarketplaceAdSlot).mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve;
+    })
+  );
+  vi.mocked(getUserRole).mockResolvedValue({ role: 'sponsor', sponsorId: 'sponsor' });
+  render(<AdSlotDetail id={slot.id} />);
+  const status = screen.getByRole('status');
+  expect(status.querySelector('.marketplace-detail-heading .dashboard-skeleton')).toBeTruthy();
+  expect(status.querySelector('.marketplace-detail-price .dashboard-skeleton')).toBeTruthy();
+  expect(status.querySelector('.sr-only')?.textContent).toBe('Loading placement details...');
+  expect(screen.getByRole('link', { name: /Back to Marketplace/ }).getAttribute('href')).toBe(
+    '/marketplace'
+  );
+  await act(async () => finish(slot));
+  expect(screen.queryByRole('status')).toBeNull();
+  expect(screen.getByRole('heading', { name: slot.name })).toBeTruthy();
 });

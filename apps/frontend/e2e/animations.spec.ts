@@ -86,7 +86,7 @@ test('shared controls, loading, navigation, and live reduced-motion changes', as
     try {
       const skeleton = page.locator('.dashboard-skeleton').first();
       await expect(skeleton).toBeVisible();
-      await expect(skeleton).toHaveCSS('animation-name', 'dashboard-pulse');
+      await expect(skeleton).toHaveCSS('animation-name', 'skeleton-shimmer');
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await expect(skeleton).toHaveCSS('animation-name', 'none');
     } finally {

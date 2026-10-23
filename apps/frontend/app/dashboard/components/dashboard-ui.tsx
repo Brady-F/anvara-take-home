@@ -1,4 +1,5 @@
 import Form from 'next/form';
+import { CardSkeleton, Skeleton } from '@/app/components/skeleton';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ApplyFilters } from './mutation-controls';
@@ -128,18 +129,56 @@ export function DashboardEmpty({
   );
 }
 
-export function DashboardLoading({ noun }: { noun: string }) {
+export function DashboardLoading({ noun }: { noun: 'campaigns' | 'ad slots' }) {
+  const campaign = noun === 'campaigns';
   return (
     <div className="dashboard-loading" role="status">
       <span className="sr-only">Loading {noun}...</span>
       <div aria-hidden="true">
-        <div className="dashboard-skeleton h-5 w-28" />
-        <div className="dashboard-skeleton mt-4 h-10 w-64 max-w-full" />
-        <div className="dashboard-skeleton my-10 h-24" />
-        <div className="dashboard-skeleton mb-6 h-16" />
+        <DashboardHeading
+          title={campaign ? 'My Campaigns' : 'My Ad Slots'}
+          description={
+            campaign
+              ? 'Manage your sponsorship campaigns and budgets.'
+              : 'Manage your inventory, pricing, and availability.'
+          }
+        >
+          <Skeleton className="h-11 w-40 shrink-0" />
+        </DashboardHeading>
+        <dl className={`dashboard-summary${campaign ? ' dashboard-summary-financial' : ''}`}>
+          {(campaign
+            ? ['Active campaigns', 'Total budget', 'Total spent']
+            : ['Total ad slots', 'Available', 'Unavailable']
+          ).map((label) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>
+                <Skeleton className={`h-[1.3em] ${campaign ? 'w-32' : 'w-12'}`} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="dashboard-filters">
+          <div className="dashboard-filter-field dashboard-search">
+            <Skeleton className="h-[19.2px] w-12" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+          {(campaign ? ['w-44', 'w-40'] : ['w-36', 'w-36', 'w-40']).map((width, index) => (
+            <div key={index} className={`dashboard-filter-field ${width} max-w-full`}>
+              <Skeleton className="h-[19.2px] w-16" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          ))}
+          <Skeleton className="h-11 w-[72px]" />
+          <Skeleton className="h-11 w-20" />
+        </div>
+        <div className="dashboard-results-heading">
+          <Skeleton className="h-[29px] w-40" />
+          <Skeleton className="h-5 w-24" />
+        </div>
         <div className="dashboard-grid">
           {[0, 1, 2].map((item) => (
-            <div key={item} className="dashboard-skeleton h-80" />
+            <CardSkeleton key={item} kind={campaign ? 'campaign' : 'ad-slot'} />
           ))}
         </div>
       </div>

@@ -477,6 +477,31 @@ Screenshots: [sponsor desktop](screenshots/animations/sponsor-desktop.jpg),
 [publisher mobile](screenshots/animations/publisher-mobile.jpg), and
 [publisher dialog](screenshots/animations/publisher-dialog.jpg).
 
+### Loading-state follow-up
+
+Replaced text-only loading and button spinners with a shared CSS shimmer. Dashboard
+placeholders follow each role's summary, filters, and card contents; marketplace cards
+and listing details reserve their actual sections. Known dashboard headings remain
+visible so text wraps consistently. Pending login/logout, filters, save/delete, and
+listing reset keep the button's original size and preserve entered form values.
+Screen readers retain descriptive loading labels, and reduced motion uses static
+skeletons. No new dependencies or data/API changes were needed.
+
+Challenge 5's visible “Saving...”/“Deleting...” examples now use skeletons at Brady's
+request; those labels remain available to assistive technology. Unknown record counts
+and text lengths use three representative cards, so final content can still change height.
+
+Validation using cached pnpm 11.21.0: typecheck, lint (three existing console warnings),
+production build with root environment loaded, and 209 regression tests pass (101 backend, 108 frontend;
+nine existing API TODOs remain). Ten targeted Chromium/WebKit scenarios pass, covering
+held requests, desktop/390px/320px layouts, reduced motion, stable login button size,
+request failure recovery, and existing navigation/dialog behavior. Both dashboard
+skeletons were also rendered with the app stylesheet and inspected at those widths.
+The added component checks cover dashboard structure, accessible pending labels,
+account/role loading, and replacement of listing skeletons when data arrives.
+No database reset/seed, record mutations, commit, or push was performed. The full CRUD
+browser suite was not rerun for this presentation-only follow-up.
+
 ## Quick Submission Steps
 
 1. **Clone** the repository

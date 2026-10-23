@@ -80,27 +80,6 @@
     opacity: 1;
   }
 }
-:is(.dashboard-button, .app-logout)[aria-busy='true']::before {
-  content: '';
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: pending-spin 700ms linear infinite;
-}
-.app-logout[aria-busy='true'] {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-@keyframes pending-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 .app-header {
   background: #fff;
@@ -557,14 +536,47 @@ select.dashboard-input {
 .dashboard-error {
   margin-top: 24px;
 }
+/* Shared by route placeholders and pending button labels. */
 .dashboard-skeleton {
-  border-radius: 12px;
-  background: #eae8e2;
-  animation: dashboard-pulse 1.5s ease-in-out infinite alternate;
+  display: block;
+  max-width: 100%;
+  border-radius: 6px;
+  background: linear-gradient(100deg, #eae8e2 25%, #f7f6f3 45%, #eae8e2 65%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
 }
-@keyframes dashboard-pulse {
+.dashboard-money > .dashboard-skeleton {
+  display: block;
+  margin: 0;
+  font-size: inherit;
+}
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
   to {
-    opacity: 0.45;
+    background-position: -100% 0;
+  }
+}
+.pending-label {
+  display: inline-grid;
+  position: relative;
+}
+.pending-label-skeleton {
+  position: absolute;
+  inset: 15% 0;
+}
+:is(.dashboard-button-primary, .dashboard-button-danger) .pending-label-skeleton {
+  background-image: linear-gradient(100deg, #ffffff40 25%, #ffffffa6 45%, #ffffff40 65%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-skeleton {
+    animation: none;
+  }
+}
+@media (forced-colors: active) {
+  .dashboard-skeleton {
+    background: GrayText;
   }
 }
 
@@ -761,6 +773,10 @@ textarea.dashboard-input {
   }
   .dashboard-filters > .dashboard-text-button {
     justify-self: start;
+  }
+  .dashboard-loading .dashboard-filter-field,
+  .dashboard-loading .dashboard-filters > .dashboard-skeleton:nth-last-child(2) {
+    width: 100%;
   }
 }
 @media (max-width: 639px) {

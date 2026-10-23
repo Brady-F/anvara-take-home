@@ -1,5 +1,7 @@
 'use client';
 
+import { PendingLabel, Skeleton } from '@/app/components/skeleton';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -28,10 +30,11 @@ export function Nav() {
       )
         .then((res) => res.json())
         .then((data: RoleData) => setRoleInfo({ userId, role: data.role }))
-        .catch(() => setRoleInfo(null));
+        .catch(() => setRoleInfo({ userId, role: null }));
     }
   }, [user?.id]);
 
+  const rolePending = Boolean(user && roleInfo?.userId !== user.id);
   const dashboardPath = role ? `/dashboard/${role}` : null;
   return (
     <header className="app-header">
@@ -46,6 +49,12 @@ export function Nav() {
           >
             Marketplace
           </Link>
+          {(isPending || rolePending) && (
+            <span className="flex items-center" role="status">
+              <span className="sr-only">Loading navigation...</span>
+              <Skeleton className="h-5 w-24" />
+            </span>
+          )}
           {user && dashboardPath && (
             <Link
               href={dashboardPath}
@@ -57,14 +66,19 @@ export function Nav() {
         </div>
         <div className="app-account">
           {isPending ? (
-            <span className="dashboard-muted text-sm" role="status">
-              Loading account...
-            </span>
+            <div className="flex items-center gap-3" role="status">
+              <span className="sr-only">Loading account...</span>
+              <div className="app-account-identity">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="mt-1 ml-auto h-3 w-14" />
+              </div>
+              <Skeleton className="h-11 w-16" />
+            </div>
           ) : user ? (
             <>
               <div className="app-account-identity">
                 <span>{user.name}</span>
-                <small>{role}</small>
+                <small>{rolePending ? <Skeleton className="mt-1 ml-auto h-4 w-14" /> : role}</small>
               </div>
               <button
                 type="button"
@@ -84,7 +98,9 @@ export function Nav() {
                   }
                 }}
               >
-                {signingOut ? 'Logging out...' : 'Logout'}
+                <PendingLabel pending={signingOut} label="Logging out...">
+                  Logout
+                </PendingLabel>
               </button>
             </>
           ) : (

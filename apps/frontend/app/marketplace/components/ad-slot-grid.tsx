@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ApiError, getMarketplaceAdSlots } from '@/lib/api';
 import type { AdSlot } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
+import { CardSkeleton, Skeleton } from '@/app/components/skeleton';
 import { AdSlotFormat } from '@/app/components/ad-slot-format';
 
 export function AdSlotGrid() {
@@ -23,9 +24,12 @@ export function AdSlotGrid() {
     return (
       <div role="status">
         <span className="sr-only">Loading marketplace...</span>
+        <div className="dashboard-results-heading" aria-hidden="true">
+          <Skeleton className="h-[29px] w-44" />
+        </div>
         <div className="dashboard-grid" aria-hidden="true">
           {[0, 1, 2].map((item) => (
-            <div key={item} className="dashboard-skeleton h-80" />
+            <CardSkeleton key={item} kind="marketplace" />
           ))}
         </div>
       </div>

@@ -74,7 +74,9 @@ describe('sponsor dashboard rendering', () => {
   it('announces loading while the route is pending', () => {
     render(<SponsorLoading />);
 
-    expect(screen.getByRole('status').textContent).toBe('Loading campaigns...');
+    expect(screen.getByRole('status').querySelector('.sr-only')?.textContent).toBe(
+      'Loading campaigns...'
+    );
   });
 
   it('shows a safe error message and retries through the route boundary', () => {
