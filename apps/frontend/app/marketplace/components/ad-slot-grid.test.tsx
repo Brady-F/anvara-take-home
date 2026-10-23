@@ -2,16 +2,19 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { AdSlotGrid } from './ad-slot-grid';
-import { getAdSlots } from '@/lib/api';
+import { ApiError, getMarketplaceAdSlots } from '@/lib/api';
 
-vi.mock('@/lib/api', () => ({ getAdSlots: vi.fn() }));
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api')>()),
+  getMarketplaceAdSlots: vi.fn(),
+}));
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
 });
 
 it('keeps listing links, readable formats, availability, and price cents', async () => {
-  vi.mocked(getAdSlots).mockResolvedValue([
+  vi.mocked(getMarketplaceAdSlots).mockResolvedValue([
     {
       id: 'native-slot',
       name: 'Article placement',
@@ -33,11 +36,20 @@ it('keeps listing links, readable formats, availability, and price cents', async
 });
 
 it('shows a safe failure after loading instead of exposing request details', async () => {
-  vi.mocked(getAdSlots).mockRejectedValue(new Error('private infrastructure details'));
+  vi.mocked(getMarketplaceAdSlots).mockRejectedValue(new Error('private infrastructure details'));
   render(<AdSlotGrid />);
   expect(screen.getByRole('status').textContent).toContain('Loading marketplace');
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain('We couldn’t load the marketplace');
   expect(alert.textContent).not.toContain('private infrastructure details');
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+});
+
+it('asks anonymous visitors to sign in instead of retrying an access denial', async () => {
+  vi.mocked(getMarketplaceAdSlots).mockRejectedValue(new ApiError(401, 'Not authenticated'));
+  render(<AdSlotGrid />);
+  expect((await screen.findByRole('link', { name: 'Sign in' })).getAttribute('href')).toBe(
+    '/login'
+  );
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 });

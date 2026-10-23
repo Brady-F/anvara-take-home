@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getAdSlots } from '@/lib/api';
+import { ApiError, getMarketplaceAdSlots } from '@/lib/api';
 import type { AdSlot } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { AdSlotFormat } from '@/app/components/ad-slot-format';
@@ -10,12 +10,12 @@ import { AdSlotFormat } from '@/app/components/ad-slot-format';
 export function AdSlotGrid() {
   const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<number | null>(null);
 
   useEffect(() => {
-    getAdSlots()
+    getMarketplaceAdSlots()
       .then(setAdSlots)
-      .catch(() => setError('Failed to load ad slots'))
+      .catch((err) => setError(err instanceof ApiError ? err.status : 500))
       .finally(() => setLoading(false));
   }, []);
 
@@ -35,11 +35,29 @@ export function AdSlotGrid() {
   if (error) {
     return (
       <div role="alert" className="dashboard-empty">
-        <h2>We couldn’t load the marketplace.</h2>
-        <p>{error}. Check your account access or try again.</p>
-        <button type="button" className="dashboard-button" onClick={() => window.location.reload()}>
-          Try again
-        </button>
+        <h2>
+          {error === 401
+            ? 'Sign in to browse the marketplace.'
+            : 'We couldn’t load the marketplace.'}
+        </h2>
+        <p>
+          {error === 401 || error === 403
+            ? 'Use a sponsor or publisher account to view ad placements.'
+            : 'Failed to load ad slots. Please try again.'}
+        </p>
+        {error === 401 ? (
+          <Link href="/login" className="dashboard-button">
+            Sign in
+          </Link>
+        ) : error !== 403 ? (
+          <button
+            type="button"
+            className="dashboard-button"
+            onClick={() => window.location.reload()}
+          >
+            Try again
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -48,7 +66,7 @@ export function AdSlotGrid() {
     return (
       <div className="dashboard-empty">
         <h2>No ad slots yet.</h2>
-        <p>Your listings will appear here once they’re added.</p>
+        <p>Publisher listings will appear here once they’re added.</p>
       </div>
     );
   }

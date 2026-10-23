@@ -114,6 +114,89 @@ async function request(path: string, user = '', method = 'GET', body?: unknown) 
   });
 }
 
+describe('read-only marketplace', () => {
+  const catalogSelect = {
+    id: true,
+    name: true,
+    description: true,
+    type: true,
+    basePrice: true,
+    isAvailable: true,
+    publisherId: true,
+    publisher: { select: { id: true, name: true, website: true } },
+  };
+
+  it.each(['', 'invalid-cookie', 'unassigned'])(
+    'rejects unauthorized identity: %s',
+    async (user) => {
+      for (const path of ['/marketplace/ad-slots', '/marketplace/ad-slots/other']) {
+        expect((await request(path, user)).status).toBe(user === 'unassigned' ? 403 : 401);
+      }
+      expect(db.adSlot.findMany).not.toHaveBeenCalled();
+      expect(db.adSlot.findUnique).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['sponsor', 'publisher'])(
+    'lets %s browse other publishers with only catalog fields',
+    async (user) => {
+      const slot = { id: 'other', publisherId: 'other-profile', name: 'Newsletter placement' };
+      db.adSlot.findMany.mockResolvedValue([slot]);
+      const list = await request('/marketplace/ad-slots', user);
+      expect(list.status).toBe(200);
+      expect(list.headers.get('cache-control')).toBe('no-store');
+      expect(await list.json()).toEqual([slot]);
+      expect(db.adSlot.findMany).toHaveBeenCalledWith({
+        select: catalogSelect,
+        orderBy: { basePrice: 'desc' },
+      });
+
+      db.adSlot.findUnique.mockResolvedValue(slot);
+      const detail = await request('/marketplace/ad-slots/other', user);
+      expect(detail.status).toBe(200);
+      expect(await detail.json()).toEqual(slot);
+      expect(db.adSlot.findUnique).toHaveBeenCalledWith({
+        where: { id: 'other' },
+        select: catalogSelect,
+      });
+    }
+  );
+
+  it('returns an empty catalog and 404 for missing listings', async () => {
+    db.adSlot.findMany.mockResolvedValue([]);
+    expect(await (await request('/marketplace/ad-slots', 'sponsor')).json()).toEqual([]);
+    expect((await request('/marketplace/ad-slots/missing', 'sponsor')).status).toBe(404);
+  });
+
+  it('does not expose writes through the catalog', async () => {
+    for (const [method, suffix] of [
+      ['POST', ''],
+      ['PUT', '/other'],
+      ['DELETE', '/other'],
+      ['POST', '/other/book'],
+      ['POST', '/other/unbook'],
+    ]) {
+      expect((await request(`/marketplace/ad-slots${suffix}`, 'sponsor', method, {})).status).toBe(
+        404
+      );
+    }
+    expect(db.adSlot.create).not.toHaveBeenCalled();
+    expect(db.adSlot.update).not.toHaveBeenCalled();
+    expect(db.adSlot.delete).not.toHaveBeenCalled();
+  });
+
+  it('hides database errors for catalog and detail reads', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    db.adSlot.findMany.mockRejectedValue(new Error('private database details'));
+    db.adSlot.findUnique.mockRejectedValue(new Error('private database details'));
+    for (const path of ['/marketplace/ad-slots', '/marketplace/ad-slots/other']) {
+      const response = await request(path, 'sponsor');
+      expect(response.status).toBe(500);
+      expect(await response.text()).not.toContain('private database details');
+    }
+  });
+});
+
 const resources = [
   {
     path: '/campaigns',

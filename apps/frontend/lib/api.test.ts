@@ -1,11 +1,33 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { api, createCampaign, createAdSlot } from './api';
+import {
+  api,
+  createCampaign,
+  createAdSlot,
+  getAdSlots,
+  getMarketplaceAdSlots,
+  getMarketplaceAdSlot,
+} from './api';
 import { getUserRole } from './auth-helpers';
 
 const fetchMock = vi.fn<typeof fetch>();
 afterEach(() => {
   vi.resetAllMocks();
   vi.unstubAllGlobals();
+});
+
+it('uses catalog routes for marketplace browsing and keeps publisher management private', async () => {
+  vi.stubGlobal('fetch', fetchMock);
+  fetchMock.mockImplementation(async () => Response.json([]));
+  await getMarketplaceAdSlots();
+  await getMarketplaceAdSlot('listing-1');
+  await getAdSlots('publisher-1');
+  expect(
+    fetchMock.mock.calls.map(([url]) => new URL(String(url)).pathname + new URL(String(url)).search)
+  ).toEqual([
+    '/api/marketplace/ad-slots',
+    '/api/marketplace/ad-slots/listing-1',
+    '/api/ad-slots?publisherId=publisher-1',
+  ]);
 });
 
 it('sends cookies and avoids caching private API data while preserving request options', async () => {

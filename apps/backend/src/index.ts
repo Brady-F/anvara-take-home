@@ -30,6 +30,9 @@ app.listen(PORT, () => {
   console.log('    POST   /api/ad-slots');
   console.log('    PUT    /api/ad-slots/:id');
   console.log('    DELETE /api/ad-slots/:id');
+  console.log('  Marketplace (read-only):');
+  console.log('    GET    /api/marketplace/ad-slots');
+  console.log('    GET    /api/marketplace/ad-slots/:id');
   console.log('  Placements:');
   console.log('    GET    /api/placements');
   console.log('    POST   /api/placements');

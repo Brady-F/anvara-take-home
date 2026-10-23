@@ -149,6 +149,37 @@ The CORS test sets its own frontend origin so deployment environment variables c
 change the test's expected origin. Review assumed the take-home's local deployment;
 no load benchmark or production deployment review was performed.
 
+### Marketplace access follow-up — October 23, 2026
+
+The sponsor demo's marketplace error was a `403` from the deliberately publisher-only
+`/api/ad-slots` endpoint, not an API/database outage. The README describes a public
+marketplace, while Challenge 3 requires owner-only ad-slot reads. Brady approved a
+limited exception to the earlier conflict decision: authenticated sponsors and
+publishers may browse a separate read-only catalog. Anonymous browsing remains denied.
+
+- Added `GET /api/marketplace/ad-slots` and `GET /api/marketplace/ad-slots/:id`, with
+  an explicit selection of listing fields and publisher ID/name/website. Private
+  placements, account details, pricing floors, and dashboard data are excluded.
+  Both available and unavailable listings appear, with their current availability.
+- Marketplace list/detail pages use these catalog endpoints. `/api/ad-slots`, its
+  ownership checks, and all mutation permissions remain unchanged. Booking remains
+  unavailable; removed its nonfunctional UI and limited listing reset controls to the
+  owning publisher. Anonymous visitors see a sign-in link instead of a retry loop.
+- This supersedes the earlier denial of sponsor marketplace reads only. It is an
+  explicit product decision to reconcile the conflicting docs, not a claim that
+  Challenge 3 itself requests cross-owner reads. No dependencies or schema changes.
+
+Validation: cached pinned pnpm 11.21.0; typecheck, lint, the production build with the
+root environment loaded, and all **203 regression tests** pass
+(101 backend, 102 frontend); nine original API placeholders remain TODOs. Lint has
+three existing console warnings. Tests cover catalog access and allowed fields,
+missing listings, failures, unavailable writes, frontend endpoint selection, sign-in
+guidance, and publisher-only reset behavior; existing ownership tests remain intact.
+All **four focused browser scenarios** pass in Chromium and WebKit against the local
+development stack: sponsor list/detail access and restricted response fields, private
+API denial, anonymous sign-in guidance, and publisher loading/navigation/motion.
+These browser scenarios do not create, reset, or delete application records.
+
 ## Implementation Notes — Challenge 4
 
 - Added campaign and ad-slot PUT/DELETE endpoints using the existing authentication,

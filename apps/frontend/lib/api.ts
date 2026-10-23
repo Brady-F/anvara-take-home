@@ -59,9 +59,13 @@ export const getAdSlots = (publisherId?: string, options?: RequestInit) =>
     publisherId ? `/api/ad-slots?publisherId=${publisherId}` : '/api/ad-slots',
     options
   );
-export const getAdSlot = (id: string) => api<AdSlot>(`/api/ad-slots/${id}`);
 export const createAdSlot = (data: CreateAdSlotInput) =>
   api<AdSlot>('/api/ad-slots', { method: 'POST', body: JSON.stringify(data) });
+
+// Read-only marketplace; publisher management continues to use /api/ad-slots.
+export const getMarketplaceAdSlots = () => api<AdSlot[]>('/api/marketplace/ad-slots');
+export const getMarketplaceAdSlot = (id: string) =>
+  api<AdSlot>(`/api/marketplace/ad-slots/${encodeURIComponent(id)}`);
 
 // Placements
 export const getPlacements = () => api<Placement[]>('/api/placements');

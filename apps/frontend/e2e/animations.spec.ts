@@ -25,6 +25,52 @@ async function login(page: Page, role: 'sponsor' | 'publisher') {
   await expect(page).toHaveURL(`/dashboard/${role}`);
 }
 
+test('sponsor can browse marketplace listings without private data or management access', async ({
+  page,
+}) => {
+  await page.goto('/marketplace');
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+  await login(page, 'sponsor');
+  try {
+    await page.getByRole('link', { name: 'Marketplace', exact: true }).click();
+    const placement = page.locator('.marketplace-card').first();
+    await expect(placement).toBeVisible();
+    const name = await placement.getByRole('heading').innerText();
+    const href = await placement.getAttribute('href');
+    const id = href!.split('/').pop();
+    const response = await page.request.get(`${api}/marketplace/ad-slots/${id}`);
+    expect(response.status()).toBe(200);
+    const slot = await response.json();
+    expect(Object.keys(slot).sort()).toEqual([
+      'basePrice',
+      'description',
+      'id',
+      'isAvailable',
+      'name',
+      'publisher',
+      'publisherId',
+      'type',
+    ]);
+    expect(Object.keys(slot.publisher).sort()).toEqual(['id', 'name', 'website']);
+    expect((await page.request.get(`${api}/ad-slots/${id}`)).status()).toBe(403);
+    await placement.click();
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    await expect(page.getByText('Browse placements here. Booking is not available.')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Book This Placement|Reset listing/ })
+    ).toHaveCount(0);
+  } finally {
+    expect(
+      (
+        await page.request.post('/api/auth/sign-out', {
+          data: {},
+          headers: { Origin: 'http://localhost:3847' },
+        })
+      ).ok()
+    ).toBe(true);
+  }
+});
+
 test('shared controls, loading, navigation, and live reduced-motion changes', async ({ page }) => {
   await login(page, 'publisher');
   try {
@@ -32,7 +78,7 @@ test('shared controls, loading, navigation, and live reduced-motion changes', as
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/api/ad-slots', async (route) => {
+    await page.route('**/api/marketplace/ad-slots', async (route) => {
       await gate;
       await route.continue();
     });
