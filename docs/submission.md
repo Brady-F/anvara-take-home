@@ -6,7 +6,8 @@ Please follow these instructions carefully to submit your work.
 
 ## Implementation Notes — Challenge 1
 
-Completed Challenges 1–5 and Design Bonus 2: Dashboard UI/UX (implementation notes below).
+Completed Challenges 1–5, Design Bonus 2: Dashboard UI/UX, and Design Bonus 3:
+Animations & Polish (implementation notes below).
 Other bonuses remain pending.
 
 - Replaced explicit `any` types in application code with typed API inputs/responses,
@@ -388,6 +389,62 @@ Follow-up screenshots: [field focus and arrows](screenshots/interface/controls-f
 Browser checks confirmed both demo sign-ins, logout, listing navigation, dropdown
 selection, dialog field styling, and layouts down to 320px. This visual follow-up
 did not create, book, reset, or delete application records.
+
+## Implementation Notes — Design Bonus 3: Animations & Polish
+
+- Added the approved Motion dependency to the frontend for card entrances/exits,
+  position-only grid rearrangement, and coordinated dialog/notice exits. CSS handles
+  page fades, button presses, field focus transitions, marketplace hover, and pending
+  indicators. Transitions take 120–220ms with restrained easing; existing loading
+  skeletons and persistent dismissible notices remain.
+- Both dashboard lists pass server-rendered cards into one small client grid wrapper.
+  Record IDs preserve component identity through filtering and sorting. Initial cards
+  remain visible in server HTML; later additions fade in, removals become inert, and
+  surviving cards move without scaling their text. Empty results use the same wrapper.
+  Server Actions, payloads, successful-only revalidation, validation, ownership rules,
+  and the earlier marketplace/403 decisions are unchanged.
+- Native dialogs retain focus containment and pending restrictions through their exit.
+  Controls cannot submit again while closing. Focus returns after the trigger is
+  re-enabled, or to Create when a later refresh removes that trigger. Browser tests
+  exposed and verified both timing cases. Reduced motion disables CSS and JavaScript
+  animation, including opacity and spinners. A small media-query subscription also
+  handles preference changes during a session; Motion 14.6's built-in hook captures
+  only the initial preference.
+- Tradeoff: Motion adds dashboard client JavaScript but avoids maintaining a custom
+  layout/exit engine. No route-exit choreography, optimistic mutations, confetti,
+  parallax, inline editors, new backend behavior, or other bonuses were added.
+
+Validation with pnpm 11.21.0: typecheck, lint, **190 regression tests** (93 backend,
+97 frontend), and the production build with the root environment loaded pass. Lint
+retains the same four console warnings and the nine original API TODOs remain.
+The added tests cover identity, interrupted exits, empty transitions, inactive closing
+controls, reduced-motion changes, and focus after delayed card removal. Existing server
+HTML and mutation regressions were retained; Vitest excludes the separate browser suite.
+
+All **10 Playwright scenarios passed against the production frontend**. They cover
+both roles in Chromium and WebKit, desktop and
+390px mobile, plus 320px overflow checks. They exercise real Server Actions and layout
+movement, create/edit/delete, validation, cancelled deletion, a held/rejected request,
+filtered removal, rapid filters, keyboard focus/Escape, notifications, marketplace
+loading/hover/navigation, and changing reduced motion. Tests create uniquely named
+records and remove only those records. Follow-up reads confirmed the original demo
+inventory remained. No reset, seed, commit, or push was performed.
+
+Run browser checks against the existing seeded local stack: start `pnpm dev`, install
+the browsers once with `pnpm exec playwright install chromium webkit`, then run
+`pnpm e2e` in another terminal. The suite uses localhost ports 3847/4291 and the existing
+demo accounts; it does not provision or clear the database.
+
+Production limitation found during verification: the existing backend `start` script
+fails resolving the extensionless generated Prisma `internal/class` import. The backend
+build itself passes. The production frontend preview therefore uses the existing
+development API; repairing the backend launch script/generated imports is outside
+this animation change. No production deployment or large-inventory benchmark was run.
+
+Screenshots: [sponsor desktop](screenshots/animations/sponsor-desktop.jpg),
+[sponsor dialog](screenshots/animations/sponsor-dialog.jpg),
+[publisher mobile](screenshots/animations/publisher-mobile.jpg), and
+[publisher dialog](screenshots/animations/publisher-dialog.jpg).
 
 ## Quick Submission Steps
 

@@ -70,6 +70,7 @@ export function Nav() {
                 type="button"
                 className="app-logout"
                 disabled={signingOut}
+                aria-busy={signingOut}
                 onClick={async () => {
                   setSigningOut(true);
                   setError('');

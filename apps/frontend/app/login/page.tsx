@@ -105,6 +105,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
+            aria-busy={loading}
             className="dashboard-button dashboard-button-primary w-full"
           >
             {loading ? 'Logging in...' : `Login as ${role === 'sponsor' ? 'Sponsor' : 'Publisher'}`}

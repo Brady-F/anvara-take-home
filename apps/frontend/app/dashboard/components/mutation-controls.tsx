@@ -12,17 +12,45 @@ import {
   type RefObject,
 } from 'react';
 import { useFormStatus } from 'react-dom';
+import { AnimatePresence, motion, useIsPresent } from 'motion/react';
+import { useReducedMotion } from './use-reduced-motion';
 import type { FormAction, FormState } from '../form-state';
-import { Dialog } from './dialog';
+import { Dialog, restoreDashboardFocus } from './dialog';
 
 const FeedbackContext = createContext<(message: string) => void>(() => {});
 
 export function ApplyFilters() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className="dashboard-button" disabled={pending}>
+    <button type="submit" className="dashboard-button" disabled={pending} aria-busy={pending}>
       {pending ? 'Applying...' : 'Apply'}
     </button>
+  );
+}
+
+function Notice({ message, dismiss }: { message: string; dismiss: () => void }) {
+  const present = useIsPresent();
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      className="dashboard-notice"
+      inert={!present}
+      aria-hidden={!present || undefined}
+      initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: reduced ? 0 : 8, transition: { duration: reduced ? 0 : 0.14 } }}
+      transition={{ duration: reduced ? 0 : 0.18, ease: 'easeOut' }}
+    >
+      <span>{message}</span>
+      <button
+        type="button"
+        className="dashboard-text-button"
+        aria-label="Dismiss notification"
+        onClick={dismiss}
+      >
+        Dismiss
+      </button>
+    </motion.div>
   );
 }
 
@@ -38,19 +66,18 @@ export function DashboardFeedback({ children }: { children: ReactNode }) {
     <FeedbackContext value={setMessage}>
       {children}
       <div className="dashboard-feedback" role="status">
-        {message && (
-          <div className="dashboard-notice">
-            <span>{message}</span>
-            <button
-              type="button"
-              className="dashboard-text-button"
-              onClick={() => setMessage('')}
-              aria-label="Dismiss notification"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {message && (
+            <Notice
+              key={message}
+              message={message}
+              dismiss={() => {
+                document.querySelector<HTMLElement>('[data-dashboard-create]')?.focus();
+                setMessage('');
+              }}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </FeedbackContext>
   );
@@ -66,13 +93,14 @@ function FormContents({
   cancel: () => void;
 }) {
   const { pending } = useFormStatus();
+  const present = useIsPresent();
   return (
-    <fieldset disabled={pending} className="min-w-0">
+    <fieldset disabled={pending || !present} className="min-w-0">
       <div className="dashboard-form-fields">{children}</div>
       <div className="dashboard-form-footer">
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || !present}
           onClick={cancel}
           className="dashboard-button"
           data-autofocus={deleting || undefined}
@@ -81,7 +109,8 @@ function FormContents({
         </button>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !present}
+          aria-busy={pending}
           className={`dashboard-button ${deleting ? 'dashboard-button-danger' : 'dashboard-button-primary'}`}
         >
           {pending ? (deleting ? 'Deleting...' : 'Saving...') : deleting ? 'Delete' : 'Save'}
@@ -109,6 +138,7 @@ function ActionForm({
   deleting?: boolean;
 }) {
   const form = useRef<HTMLFormElement>(null);
+  const present = useIsPresent();
   const [state, formAction, pending] = useActionState(
     async (previous: FormState, data: FormData) => {
       try {
@@ -127,8 +157,10 @@ function ActionForm({
   );
 
   useEffect(() => {
-    form.current?.querySelector<HTMLElement>('[aria-invalid="true"], [role="alert"]')?.focus();
-  }, [state]);
+    if (!pending && present) {
+      form.current?.querySelector<HTMLElement>('[aria-invalid="true"], [role="alert"]')?.focus();
+    }
+  }, [state, pending, present]);
 
   return (
     <Dialog
@@ -138,7 +170,15 @@ function ActionForm({
       returnFocus={returnFocus}
       compact={deleting}
     >
-      <form ref={form} action={formAction} aria-label={label} noValidate>
+      <form
+        ref={form}
+        action={formAction}
+        aria-label={label}
+        noValidate
+        onSubmit={(event) => {
+          if (!present) event.preventDefault();
+        }}
+      >
         <FormContents deleting={deleting} cancel={cancel}>
           {children(state)}
           {state.fieldErrors && (
@@ -174,15 +214,27 @@ export function MutationControls({
 }) {
   // shortcut: forms need JavaScript; use native disclosures and direct actions if no-script access is required.
   const [view, setView] = useState<'edit' | 'delete' | null>(null);
+  const [closing, setClosing] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const restoreAfterExit = useRef(false);
   const report = useContext(FeedbackContext);
-  const close = () => setView(null);
+  const close = () => {
+    restoreAfterExit.current = true;
+    setClosing(true);
+    setView(null);
+  };
+  useEffect(() => {
+    if (!closing && view === null && restoreAfterExit.current) {
+      restoreAfterExit.current = false;
+      restoreDashboardFocus(returnFocus.current);
+    }
+  }, [closing, view]);
   return (
     <div className={deleteAction ? 'dashboard-card-actions' : ''}>
       <button
         type="button"
         data-dashboard-create={!deleteAction || undefined}
-        disabled={view !== null}
+        disabled={view !== null || closing}
         onClick={(event) => {
           returnFocus.current = event.currentTarget;
           report('');
@@ -202,7 +254,7 @@ export function MutationControls({
         <button
           type="button"
           className="dashboard-text-button dashboard-delete"
-          disabled={view !== null}
+          disabled={view !== null || closing}
           aria-haspopup="dialog"
           onClick={(event) => {
             returnFocus.current = event.currentTarget;
@@ -213,41 +265,45 @@ export function MutationControls({
           Delete
         </button>
       )}
-      {view === 'edit' && (
-        <ActionForm
-          action={action}
-          label={label}
-          cancel={close}
-          returnFocus={returnFocus}
-          onSuccess={() => {
-            report(`${itemName} saved successfully.`);
-            close();
-          }}
-        >
-          {children}
-        </ActionForm>
-      )}
-      {view === 'delete' && deleteAction && (
-        <ActionForm
-          action={deleteAction}
-          label={`Delete ${itemName.toLowerCase()}?`}
-          cancel={close}
-          returnFocus={returnFocus}
-          deleting
-          onSuccess={() => {
-            returnFocus.current = document.querySelector<HTMLElement>('[data-dashboard-create]');
-            report(`${itemName} deleted successfully.`);
-            close();
-          }}
-        >
-          {() => (
-            <p className="dashboard-delete-copy">
-              Delete <strong>{itemTitle}</strong>? This also deletes its related placements
-              {itemName === 'Campaign' ? ' and creatives' : ''}. This cannot be undone.
-            </p>
-          )}
-        </ActionForm>
-      )}
+      <AnimatePresence propagate onExitComplete={() => setClosing(false)}>
+        {view === 'edit' && (
+          <ActionForm
+            key="edit"
+            action={action}
+            label={label}
+            cancel={close}
+            returnFocus={returnFocus}
+            onSuccess={() => {
+              report(`${itemName} saved successfully.`);
+              close();
+            }}
+          >
+            {children}
+          </ActionForm>
+        )}
+        {view === 'delete' && deleteAction && (
+          <ActionForm
+            key="delete"
+            action={deleteAction}
+            label={`Delete ${itemName.toLowerCase()}?`}
+            cancel={close}
+            returnFocus={returnFocus}
+            deleting
+            onSuccess={() => {
+              returnFocus.current = document.querySelector<HTMLElement>('[data-dashboard-create]');
+              report(`${itemName} deleted successfully.`);
+              close();
+            }}
+          >
+            {() => (
+              <p className="dashboard-delete-copy">
+                Delete <strong>{itemTitle}</strong>? This also deletes its related placements
+                {itemName === 'Campaign' ? ' and creatives' : ''}. This cannot be undone.
+              </p>
+            )}
+          </ActionForm>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

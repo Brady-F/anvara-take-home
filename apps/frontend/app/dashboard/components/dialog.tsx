@@ -1,6 +1,15 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
+import { motion, useIsPresent } from 'motion/react';
+import { useReducedMotion } from './use-reduced-motion';
+
+export function restoreDashboardFocus(target: HTMLElement | null) {
+  (target?.isConnected && !target.closest('[inert]') && !target.matches(':disabled')
+    ? target
+    : document.querySelector<HTMLElement>('[data-dashboard-create]')
+  )?.focus();
+}
 
 export function Dialog({
   title,
@@ -19,34 +28,41 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const present = useIsPresent();
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     const dialog = ref.current!;
+    const target = returnFocus.current;
     dialog.showModal();
     dialog.querySelector<HTMLElement>('[data-autofocus], input, select, textarea')?.focus();
-    // Revalidation can remove the edited card from the current filtered results.
-    const restoreFocus = () => {
-      const target = returnFocus.current;
-      (target?.isConnected
-        ? target
-        : document.querySelector<HTMLElement>('[data-dashboard-create]')
-      )?.focus();
-    };
     return () => {
       dialog.close();
-      restoreFocus();
+      // The owning card may disappear before its controls can restore focus.
+      if (!target?.isConnected || target.closest('[inert]')) {
+        requestAnimationFrame(() => restoreDashboardFocus(null));
+      }
     };
   }, [returnFocus]);
 
   return (
-    <dialog
+    <motion.dialog
       ref={ref}
       aria-labelledby={titleId}
       aria-busy={pending}
+      data-exiting={!present || undefined}
+      initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 'var(--dialog-offset)' }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{
+        opacity: 0,
+        y: reduced ? 0 : 'var(--dialog-offset)',
+        transition: { duration: reduced ? 0 : 0.14 },
+      }}
+      transition={{ duration: reduced ? 0 : 0.18, ease: 'easeOut' }}
       className={`dashboard-dialog${compact ? ' dashboard-dialog-compact' : ''}`}
       onCancel={(event) => {
         event.preventDefault();
-        if (!pending) onClose();
+        if (!pending && present) onClose();
       }}
     >
       <div className="dashboard-dialog-heading">
@@ -55,7 +71,7 @@ export function Dialog({
           type="button"
           className="dashboard-close"
           aria-label="Close dialog"
-          disabled={pending}
+          disabled={pending || !present}
           onClick={onClose}
         >
           <svg
@@ -72,6 +88,6 @@ export function Dialog({
         </button>
       </div>
       {children}
-    </dialog>
+    </motion.dialog>
   );
 }

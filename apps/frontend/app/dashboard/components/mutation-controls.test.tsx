@@ -8,6 +8,7 @@ import { createCampaign, updateCampaign, deleteCampaign } from '../sponsor/actio
 import { createAdSlot } from '../publisher/actions';
 import { ApplyFilters, DashboardFeedback } from './mutation-controls';
 import type { FormState } from '../form-state';
+import { AnimatedGrid } from './animated-grid';
 
 vi.mock('../sponsor/actions', () => ({
   createCampaign: vi.fn(),
@@ -32,6 +33,64 @@ afterEach(() => {
   cleanup();
   vi.resetAllMocks();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+it('retains the closing dialog, blocks duplicate submissions, then restores focus', async () => {
+  render(<CampaignEditor />);
+  const trigger = screen.getByRole('button', { name: 'Create Campaign' });
+  fireEvent.click(trigger);
+  const form = screen.getByRole('form');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByRole('dialog').getAttribute('data-exiting')).toBe('true');
+  expect(screen.getByRole('button', { name: 'Save' }).matches(':disabled')).toBe(true);
+  expect(trigger.matches(':disabled')).toBe(true);
+  fireEvent.submit(form);
+  expect(createCampaign).not.toHaveBeenCalled();
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+});
+
+it.each([false, true])(
+  'closes a nested dialog when its card leaves the results (reduced motion: %s)',
+  async (reduced) => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: reduced,
+      addEventListener() {},
+      removeEventListener() {},
+    }));
+    const content = <CampaignEditor campaign={campaign} />;
+    const dashboard = (visible: boolean) => (
+      <DashboardFeedback>
+        <CampaignEditor />
+        <AnimatedGrid
+          items={visible ? [{ id: campaign.id, content }] : []}
+          empty={<p>No results</p>}
+        />
+      </DashboardFeedback>
+    );
+    const view = render(dashboard(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Campaign' }));
+    view.rerender(dashboard(false));
+    expect(screen.getByRole('dialog').getAttribute('data-exiting')).toBe('true');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Campaign' }))
+    );
+  }
+);
+
+it('closes without movement when reduced motion is enabled', async () => {
+  vi.stubGlobal('matchMedia', () => ({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  render(<AdSlotEditor />);
+  fireEvent.click(screen.getByRole('button', { name: 'Create Ad Slot' }));
+  expect((screen.getByRole('dialog') as HTMLElement).style.transform).toBe('none');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
 const campaign: Campaign = {
   id: 'campaign-1',
@@ -60,11 +119,11 @@ it('keeps input and field errors after failure, then shows success and closes th
   await screen.findByText('Enter a positive budget.');
   expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('My launch');
   expect(screen.getByLabelText('Budget ($)').getAttribute('aria-invalid')).toBe('true');
-  expect(document.activeElement).toBe(screen.getByLabelText('Budget ($)'));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Budget ($)')));
   fireEvent.change(screen.getByLabelText('Budget ($)'), { target: { value: '100' } });
   fireEvent.submit(screen.getByRole('form', { name: 'Create Campaign' }));
   await screen.findByText('Campaign saved successfully.');
-  expect(screen.queryByRole('form')).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
   await waitFor(() =>
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Campaign' }))
   );
@@ -83,7 +142,7 @@ it('prefills campaign edits and binds the item ID to the action', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe('Try again.');
   expect(updateCampaign).toHaveBeenCalledWith('campaign-1', {}, expect.any(FormData));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.queryByRole('form')).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
   await waitFor(() =>
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit Campaign' }))
   );
@@ -121,7 +180,7 @@ it('disables form fields, saving, and cancel while the server action is pending'
     finish({ success: true });
     await screen.findByText('Ad slot saved successfully.');
   }
-  expect(screen.queryByRole('form')).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
 });
 it('requires a named delete confirmation, supports cancellation, and focuses Create after success', async () => {
   let finish!: (value: FormState) => void;
@@ -143,7 +202,10 @@ it('requires a named delete confirmation, supports cancellation, and focuses Cre
   expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Cancel' }));
   expect(deleteCampaign).not.toHaveBeenCalled();
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-  expect(screen.queryByRole('dialog')).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Delete' }).matches(':disabled')).toBe(false)
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
   fireEvent.submit(screen.getByRole('form'));
   await screen.findByRole('button', { name: 'Deleting...' });
@@ -161,7 +223,7 @@ it('requires a named delete confirmation, supports cancellation, and focuses Cre
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Campaign' }))
   );
   fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
-  expect(screen.getByRole('status').textContent).toBe('');
+  await waitFor(() => expect(screen.getByRole('status').textContent).toBe(''));
 });
 
 it('keeps the form open with a safe message when the Server Action request rejects', async () => {
@@ -203,7 +265,7 @@ it('omits unchanged campaign dates so editing a name preserves stored times', as
   expect(second.get('endDate')).toBe('2026-10-22');
 });
 
-it('returns focus to Create when revalidation removes the open card', () => {
+it('returns focus to Create when revalidation removes the open card', async () => {
   const view = render(
     <DashboardFeedback>
       <CampaignEditor />
@@ -216,8 +278,10 @@ it('returns focus to Create when revalidation removes the open card', () => {
       <CampaignEditor />
     </DashboardFeedback>
   );
-  expect(screen.queryByRole('dialog')).toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Campaign' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() =>
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Campaign' }))
+  );
 });
 
 it('recovers focus when the filtered card disappears after a successful save', async () => {
@@ -236,7 +300,9 @@ it('recovers focus when the filtered card disappears after a successful save', a
       <CampaignEditor />
     </DashboardFeedback>
   );
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Campaign' }));
+  await waitFor(() =>
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Campaign' }))
+  );
 });
 
 it('shows pending feedback while filters are being applied', async () => {

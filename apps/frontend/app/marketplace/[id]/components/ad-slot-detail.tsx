@@ -246,6 +246,7 @@ export function AdSlotDetail({ id }: Props) {
                 <button
                   onClick={handleBooking}
                   disabled={booking}
+                  aria-busy={booking}
                   className="dashboard-button dashboard-button-primary w-full"
                 >
                   {booking ? 'Booking...' : 'Book This Placement'}
