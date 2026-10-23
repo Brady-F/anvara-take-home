@@ -4,6 +4,22 @@
 
 # Anvara Take-Home Test
 
+## Submission overview — Brady Fisher
+
+Completed all five core challenges, plus **Design Bonus 2: Dashboard UI/UX** and
+**Design Bonus 3: Animations & Polish**. Both roles have server-rendered dashboards,
+authenticated CRUD Server Actions, ownership checks, validation, accessible dialogs,
+filters, and reduced-motion support.
+
+The marketplace is a read-only catalog for signed-in sponsors and publishers.
+Management APIs remain owner-only; booking is intentionally unavailable. See the
+[submission notes](docs/submission.md) for requirement conflicts, decisions,
+verification results, screenshots, and remaining limitations.
+
+Start with the [setup guide](docs/setup.md). Use **Node.js 22.13+ (22.x) or 24+** and
+**pnpm 11.21.0**. Setup creates demo data and replaces any existing data in its target
+database; do not rerun it against data you want to keep.
+
 ```
 ## ⚠️ Important: Do NOT Fork This Repository
 
@@ -56,7 +72,7 @@ A sponsorship marketplace connecting sponsors with publishers, built with modern
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15, React 19, Tailwind CSS v4
+- **Frontend**: Next.js 16.3, React 19, Tailwind CSS v4
 - **Backend**: Express.js, Prisma ORM, PostgreSQL
 - **Auth**: Better Auth
 - **Monorepo**: PNPM workspaces
@@ -65,8 +81,8 @@ A sponsorship marketplace connecting sponsors with publishers, built with modern
 
 ## Assumptions
 
-- Node.js v20+
-- PNPM v8+
+- Node.js 22.13+ (22.x) or 24+
+- PNPM 11.21.0 (declared in `package.json`)
 - Docker installed and running
 
 If not confident, see the [Setup Guide](docs/setup.md)
@@ -120,6 +136,7 @@ cd take-home
 ### Automated Setup (Recommended)
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm setup-project
 ```
 
@@ -156,10 +173,10 @@ PostgreSQL runs in Docker on port 5498:
 
 ```bash
 # Start database
-docker-compose up -d
+docker compose up -d
 
 # Stop database
-docker-compose down
+docker compose down
 
 # View Prisma Studio
 pnpm --filter @anvara/backend db:studio
@@ -169,8 +186,8 @@ pnpm --filter @anvara/backend db:studio
 
 Better Auth is configured for role-based access:
 
-- **Sponsors**: View campaigns, create placements
-- **Publishers**: View ad slots, manage availability
+- **Sponsors**: Manage their campaigns and browse the read-only marketplace
+- **Publishers**: Manage their ad slots and availability; browse the read-only marketplace
 
 **Demo accounts:**
 
@@ -208,11 +225,11 @@ Explore [all bonus challenges](docs/bonus-challenges/README.md) organized by cat
 **🎨 Design & UX**
 
 - [Marketing Landing Page](docs/bonus-challenges/design/01-landing-page.md)
-- [Dashboard Redesign](docs/bonus-challenges/design/02-dashboard.md)
-- [Campaign Builder Flow](docs/bonus-challenges/design/03-campaign-builder.md)
-- [Mobile-First Experience](docs/bonus-challenges/design/04-mobile-responsive.md)
-- [Dark Mode Support](docs/bonus-challenges/design/05-dark-mode.md)
-- [Component Library](docs/bonus-challenges/design/06-component-library.md)
+- [Dashboard UI/UX](docs/bonus-challenges/design/02-dashboard-ui.md)
+- [Animations & Polish](docs/bonus-challenges/design/03-animations.md)
+- [Mobile-First Experience](docs/bonus-challenges/design/04-mobile.md)
+- [Error & Empty States](docs/bonus-challenges/design/05-error-states.md)
+- [Fix ESLint Warnings](docs/bonus-challenges/design/06-eslint.md)
 - [Data Table Pagination](docs/bonus-challenges/design/07-pagination.md)
 
 **📊 Analytics & Testing**

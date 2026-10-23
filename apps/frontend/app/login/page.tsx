@@ -25,44 +25,46 @@ export default function LoginPage() {
     setError(null);
 
     // Use Better Auth signIn.email with proper callbacks
-    const { error: signInError } = await authClient.signIn.email(
-      {
-        email,
-        password,
-      },
-      {
-        onRequest: () => {
-          setLoading(true);
+    const { error: signInError } = await authClient.signIn
+      .email(
+        {
+          email,
+          password,
         },
-        onSuccess: async (ctx) => {
-          // Fetch user role to determine redirect
-          try {
-            const userId = ctx.data?.user?.id;
-            if (userId) {
-              const roleRes = await fetch(`${API_URL}/api/auth/role/${userId}`, {
-                credentials: 'include',
-              });
-              const roleData = await roleRes.json();
-              if (roleData.role === 'sponsor') {
-                router.push('/dashboard/sponsor');
-              } else if (roleData.role === 'publisher') {
-                router.push('/dashboard/publisher');
+        {
+          onRequest: () => {
+            setLoading(true);
+          },
+          onSuccess: async (ctx) => {
+            // Fetch user role to determine redirect
+            try {
+              const userId = ctx.data?.user?.id;
+              if (userId) {
+                const roleRes = await fetch(`${API_URL}/api/auth/role/${userId}`, {
+                  credentials: 'include',
+                });
+                const roleData = await roleRes.json();
+                if (roleData.role === 'sponsor') {
+                  router.push('/dashboard/sponsor');
+                } else if (roleData.role === 'publisher') {
+                  router.push('/dashboard/publisher');
+                } else {
+                  router.push('/');
+                }
               } else {
                 router.push('/');
               }
-            } else {
+            } catch {
               router.push('/');
             }
-          } catch {
-            router.push('/');
-          }
-        },
-        onError: (ctx) => {
-          setError(ctx.error.message || 'Login failed');
-          setLoading(false);
-        },
-      }
-    );
+          },
+          onError: (ctx) => {
+            setError(ctx.error.message || 'Login failed');
+            setLoading(false);
+          },
+        }
+      )
+      .catch(() => ({ error: { message: 'Unable to log in. Please try again.' } }));
 
     // Handle any errors not caught by onError callback
     if (signInError) {

@@ -14,7 +14,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
@@ -148,8 +148,7 @@ ${colors.cyan}╔═════════════════════
 
   // Check if setup has already run
   if (existsSync(FINGERPRINT_FILE)) {
-    const timestamp = readFileSync(FINGERPRINT_FILE, 'utf-8');
-    logSuccess(`Setup previously completed at: ${timestamp}`);
+    logSuccess('Previous setup detected. This run will replace the database sample data.');
     console.log('');
   }
 
@@ -157,7 +156,9 @@ ${colors.cyan}╔═════════════════════
   logStep('1', 'Checking prerequisites...');
 
   if (!checkCommand('node')) {
-    logError('Node.js is not installed. Please install Node.js 20+ from https://nodejs.org');
+    logError(
+      'Node.js is not installed. Please install Node.js 22.13+ or 24+ from https://nodejs.org'
+    );
     process.exit(1);
   }
   const nodeVersion = execSync('node --version', { encoding: 'utf-8' }).trim();
@@ -264,7 +265,7 @@ ${colors.cyan}╔═════════════════════
 
   // Step 4: Install dependencies
   logStep('4', 'Installing dependencies...');
-  run('pnpm install');
+  run('pnpm install --frozen-lockfile');
   logSuccess('Dependencies installed');
 
   // Step 5a: Start Docker containers
@@ -311,24 +312,7 @@ ${colors.cyan}╔═════════════════════
   // Step 6: Setup database schema
   logStep('6', 'Setting up database schema...');
 
-  // 6a: Better Auth tables (user, session, account, verification)
-  // Use dotenv-cli to load .env from root directory
-  try {
-    execSync(`npx dotenv-cli -e ${join(ROOT_DIR, '.env')} -- npx @better-auth/cli migrate --yes`, {
-      cwd: join(ROOT_DIR, 'apps', 'frontend'),
-      stdio: 'inherit',
-      encoding: 'utf-8',
-    });
-    logSuccess('Better Auth tables created');
-  } catch (error: any) {
-    logError('Failed to create Better Auth tables');
-    logError(`Database: ${dbName}`);
-    logError(`DATABASE_URL: ${databaseUrl}`);
-    console.error(error.message);
-    process.exit(1);
-  }
-
-  // 6b: Prisma schema
+  // The existing seed creates Better Auth tables after Prisma applies the application schema.
   run('pnpm --filter @anvara/backend db:generate');
   logSuccess('Prisma client generated');
 

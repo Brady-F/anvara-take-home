@@ -6,8 +6,8 @@ This guide will help you get the Anvara Take-Home Test running on your machine.
 
 Before you begin, make sure you have:
 
-- **Node.js 20+** - [Download](https://nodejs.org/)
-- **pnpm 9+** - Installed via npm or corepack
+- **Node.js 22.13+ (22.x) or 24+** - [Download](https://nodejs.org/)
+- **pnpm 11.21.0** - Installed via npm or corepack
 - **Docker Desktop** - [Download](https://www.docker.com/products/docker-desktop/)
 
 ### Install pnpm
@@ -15,7 +15,7 @@ Before you begin, make sure you have:
 If you don't have pnpm installed:
 
 ```bash
-npm install -g pnpm
+npm install -g pnpm@11.21.0
 ```
 
 ## Platform Support
@@ -33,8 +33,13 @@ All scripts use cross-platform tools to ensure compatibility.
 Run the automated setup script:
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm setup-project
 ```
+
+**Use a disposable local database.** Setup seeds demo accounts and deletes existing
+authentication and application data in the configured database. `pnpm reset` also
+removes Docker volumes. Neither command is needed for ordinary development.
 
 This will:
 
@@ -53,7 +58,7 @@ If you prefer step-by-step setup:
 ### 1. Install Dependencies
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 ### 2. Configure Environment
@@ -69,20 +74,25 @@ copy .env.example .env
 Copy-Item .env.example .env
 ```
 
+Generate a secret with `openssl rand -hex 32` and set `BETTER_AUTH_SECRET` in `.env`.
+Keep `.env` untracked. The example database URL matches the Docker defaults.
+
 ### 3. Start Database
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 4. Setup Prisma
 
 ```bash
-cd apps/backend
-pnpm db:generate
-pnpm db:push
-pnpm db:seed
+pnpm --filter @anvara/backend db:generate
+pnpm --filter @anvara/backend db:push
+pnpm --filter @anvara/backend db:seed
 ```
+
+The seed creates Better Auth tables and both demo accounts as well as application
+data. It replaces existing data; run it only on a disposable database.
 
 ## Environment Variables
 
@@ -131,7 +141,7 @@ pnpm typecheck
 pnpm lint
 
 # Fix lint errors
-pnpm lint:fix
+pnpm -r lint --fix
 
 # Format code
 pnpm format
@@ -159,6 +169,27 @@ Opens at http://localhost:5555. Use it to:
 - ✅ **Test edge cases** - Manually modify data to test your error handling
 
 This is incredibly helpful when working on Challenges 3-5!
+
+## Production preview and verification
+
+After setup, run from the repository root:
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test --run
+pnpm build
+pnpm --parallel --filter @anvara/backend --filter @anvara/frontend start
+```
+
+Both build and start scripts load the root `.env`; environment variables supplied by
+the calling shell take precedence. For development, use `pnpm dev` instead of the
+production start command. Do not run both on the same ports.
+
+For the browser suite, leave either stack running, install the browsers once with
+`pnpm exec playwright install chromium webkit`, then run `pnpm e2e` in another terminal.
+The suite uses both demo accounts and creates uniquely named records that it removes
+afterward. It does not reset or seed the database.
 
 ## Services & Ports
 
@@ -189,8 +220,8 @@ After setup completes:
 docker ps
 
 # Restart Docker containers
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
 ```
 
 ### Database Issues
@@ -219,7 +250,7 @@ pnpm store prune
 
 # Reinstall dependencies
 rm -rf node_modules
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 ## Next Steps

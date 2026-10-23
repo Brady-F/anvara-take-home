@@ -32,3 +32,14 @@ it('preserves the selected account and re-enables login after a rejected sign-in
     false
   );
 });
+
+it('re-enables login when the sign-in request throws', async () => {
+  signIn.mockRejectedValue(new Error('Network disconnected'));
+  render(<LoginPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Login as Sponsor' }));
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'Unable to log in. Please try again.'
+  );
+  expect(screen.getByRole('button', { name: 'Login as Sponsor' }).matches(':disabled')).toBe(false);
+  expect(screen.getByRole('combobox', { name: 'Account type' }).matches(':disabled')).toBe(false);
+});

@@ -57,7 +57,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         ...(type && {
           type: type as AdSlotType,
         }),
-        ...(available === 'true' && { isAvailable: true }),
+        ...(available !== undefined && { isAvailable: available === 'true' }),
       },
       include: {
         publisher: { select: { id: true, name: true, category: true, monthlyViews: true } },

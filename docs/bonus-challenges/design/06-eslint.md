@@ -22,9 +22,9 @@ Run `pnpm lint` and fix all remaining TypeScript/ESLint errors and warnings thro
 
 ## Files with Issues
 
-- [`apps/backend/src/utils/helpers.ts`](../../apps/backend/src/utils/helpers.ts)
-- [`apps/frontend/lib/utils.ts`](../../apps/frontend/lib/utils.ts)
-- [`apps/frontend/lib/api.ts`](../../apps/frontend/lib/api.ts)
+- [`apps/backend/src/utils/helpers.ts`](../../../apps/backend/src/utils/helpers.ts)
+- [`apps/frontend/lib/utils.ts`](../../../apps/frontend/lib/utils.ts)
+- [`apps/frontend/lib/api.ts`](../../../apps/frontend/lib/api.ts)
 
 ---
 

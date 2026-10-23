@@ -9,7 +9,7 @@
     "format": "pnpm -r format",
     "lint": "pnpm -r lint",
     "reset": "pnpm dlx tsx scripts/reset.ts",
-    "setup-project": "pnpm dlx tsx scripts/setup.ts",
+    "setup-project": "tsx scripts/setup.ts",
     "stop": "docker compose down",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
@@ -23,6 +23,6 @@
   },
   "packageManager": "pnpm@11.21.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "^22.13.0 || >=24.0.0"
   }
 }

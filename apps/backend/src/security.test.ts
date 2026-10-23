@@ -471,6 +471,13 @@ it('keeps valid filters inside the session ownership scope', async () => {
   );
 });
 
+it('filters unavailable ad slots without losing the owner scope', async () => {
+  expect((await request('/ad-slots?available=false', 'publisher')).status).toBe(200);
+  expect(db.adSlot.findMany).toHaveBeenCalledWith(
+    expect.objectContaining({ where: { publisherId: 'publisher-1', isAvailable: false } })
+  );
+});
+
 it('passes request cookies to Better Auth and bypasses cached session data', async () => {
   const response = await request('/auth/me', 'sponsor');
   expect(response.status).toBe(200);
